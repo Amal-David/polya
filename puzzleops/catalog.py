@@ -266,7 +266,8 @@ def prepare(operation_id: str, inputs: dict):
     op = REGISTRY[operation_id]
     validated = op.request.model_validate(inputs).model_dump(mode="json")
     identity = {"operation_id": operation_id, "operation_version": op.version,
-                "implementation": implementation_fingerprint(), "inputs": validated}
+                "implementation": implementation_fingerprint(), "inputs": validated,
+                "runtime_mode": execution_mode()}
     key = hashlib.sha256(canonical_json(identity).encode()).hexdigest()
     return op, validated, identity, key
 
@@ -277,13 +278,26 @@ def execute_prepared(op, validated, identity, key):
         result = op.result.model_validate(result).model_dump(mode="json")
     if len(canonical_json(result).encode("utf8")) > 1_000_000:
         raise ValueError("result exceeds 1 MB output admission limit; reduce the requested scope")
+    # Lazy native imports may change interpreter mode during the kernel. These
+    # are boundary observations, not a claim of continuous process monitoring.
+    after = execution_mode()
+    final_fingerprint = (implementation_fingerprint()
+                         if after != identity["runtime_mode"] else identity["implementation"])
     return {"operation_id": op.operation_id, "result": result,
-            "receipt": make_receipt(op, validated, identity, key, result)}
+            "receipt": make_receipt(op, validated, identity, key, result,
+                                    runtime_after=after, final_fingerprint=final_fingerprint)}
 
 
-def make_receipt(op, validated, identity, key, result):
+def make_receipt(op, validated, identity, key, result, *, runtime_after=None, final_fingerprint=None):
     result_hash = hashlib.sha256(canonical_json(result).encode()).hexdigest()
-    return {"experiment_key": key, "implementation_fingerprint": identity["implementation"],
+    before = identity["runtime_mode"]
+    after = before if runtime_after is None else runtime_after
+    return {"experiment_key": key,
+                        "implementation_fingerprint": final_fingerprint or identity["implementation"],
+                        "preparation_implementation_fingerprint": identity["implementation"],
+                        "runtime_observations": {"before": before, "after": after,
+                                                 "changed": before != after,
+                                                 "scope": "Boundary samples, not continuous runtime monitoring."},
                         "operation_version": op.version, "inputs_sha256": hashlib.sha256(canonical_json(validated).encode()).hexdigest(),
                         "result_sha256": result_hash, "postcondition": op.postcondition,
                         "independently_reproduced": False,

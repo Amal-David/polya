@@ -34,7 +34,9 @@ class Session:
                 raise ValueError("cache corruption: input, result, or receipt mismatch") from exc
         else:
             envelope = execute_prepared(op, validated, identity, key)
-            if op.cacheable:
+            # Never reuse an execution spanning a runtime-mode transition as
+            # though it ran wholly in either the initial or final mode.
+            if op.cacheable and not envelope["receipt"]["runtime_observations"]["changed"]:
                 self.connection.execute("INSERT INTO results VALUES (?,?,?)", (key, canonical_json(identity), canonical_json(envelope)))
         self.connection.execute("INSERT INTO calls (key,at,cache_hit) VALUES (?,?,?)", (key, time.time(), int(cache_hit)))
         self.connection.commit()
