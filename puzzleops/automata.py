@@ -32,19 +32,20 @@ class Machine(StrictModel):
 
     @model_validator(mode='after')
     def validate_machine(self):
-        if len(set(self.states)) != len(self.states) or any(not s or len(s)>100 for s in self.states):
+        states, alphabet = set(self.states), set(self.alphabet)
+        if len(states) != len(self.states) or any(not s or len(s)>100 for s in self.states):
             raise ValueError('states must be distinct, nonempty names of at most 100 characters')
-        if len(set(self.alphabet)) != len(self.alphabet):
+        if len(alphabet) != len(self.alphabet):
             raise ValueError('alphabet symbols must be distinct')
         if any(type(a) not in (int, str) or (isinstance(a, str) and len(a)>100) for a in self.alphabet):
             raise ValueError('alphabet symbols must be bounded strings or strict integers')
-        if self.initial not in self.states or not set(self.accepting) <= set(self.states):
+        if self.initial not in states or not set(self.accepting) <= states:
             raise ValueError('initial and accepting states must be declared')
         if len(set(self.accepting)) != len(self.accepting):
             raise ValueError('accepting states must be distinct')
         seen = set()
         for t in self.transitions:
-            if t.source not in self.states or t.target not in self.states or t.symbol not in self.alphabet:
+            if t.source not in states or t.target not in states or t.symbol not in alphabet:
                 raise ValueError('transition refers to undeclared state or symbol')
             if (t.source, t.symbol) in seen:
                 raise ValueError('transition relation must be deterministic')

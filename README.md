@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11 or newer">
 </p>
 
-Polya gives AI agents **21 composable operations** for transformations, symbolic
+Polya gives AI agents **22 composable operations** for transformations, symbolic
 constraints, automata, and candidate verification. Python, a JSON CLI, and a
 stdio MCP server share the same typed contracts. The agent chooses the strategy;
 the library supplies bounded, inspectable computations.
@@ -62,7 +62,7 @@ It exposes **`puzzle.find`** to discover or inspect an operation and
 | Transformations | Strict byte decoding, text profiles, grid traversal, indexed candidates |
 | Constraints | Z3 and CP-SAT adapters, finite reference solver, answer uniqueness, forced values |
 | Hypotheses | Explicit assumptions, source-linked contradictions, differing predictions |
-| Automata | Sequence rules, deterministic replay, shortest distinguishing inputs, bounded active learning |
+| Automata | Sequence rules, batched replay, shortest distinguishing inputs, bounded active learning |
 | Verification | Independent assignment checks, exact commitments, explicit crypto derivations |
 
 Results describe the **supplied model**, not the author's intended meaning.
@@ -73,7 +73,8 @@ equivalence. Raw image/audio interpretation is outside the current implementatio
 
 [Quickstart and examples](docs/QUICKSTART.md) · [Symbolic models](docs/SYMBOLIC.md) ·
 [Automata](docs/AUTOMATA.md) · [Architecture](docs/ARCHITECTURE.md) ·
-[Coverage and roadmap](docs/HOLISTIC-COVERAGE.md) · [Validation](validation/POLYA-MIGRATION.md)
+[Coverage and roadmap](docs/HOLISTIC-COVERAGE.md) · [Validation](validation/POLYA-MIGRATION.md) ·
+[Batching, workers, ledger and evaluation](docs/EXECUTION-AND-EVALUATION.md)
 
 ## Development
 

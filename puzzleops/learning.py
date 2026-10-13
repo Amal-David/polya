@@ -10,6 +10,7 @@ from typing import Protocol
 import time
 
 from .automata import Machine, Transition, as_machine, simulate
+from .prepared import prepare_machine
 
 
 class ResettableSystem(Protocol):
@@ -69,6 +70,7 @@ class GuardedQueries:
                 self.query(word,fresh=True); self.query(word,fresh=True)
     def counterexample(self,machine,max_depth):
         self.last_model=machine
+        prepared=prepare_machine(machine)
         for depth in range(1,max_depth+1):
             for word in product(self.alphabet,repeat=depth):
                 self.time_check()
@@ -76,7 +78,7 @@ class GuardedQueries:
                     raise LearningBudgetExceeded('equivalence_test_budget')
                 self.equivalence_tests+=1
                 observed=self.query(word)
-                predicted=simulate(machine,list(word))['outputs']
+                predicted=prepared.outputs(word)
                 if tuple(predicted)!=observed: return word
         return None
     def stats(self):
