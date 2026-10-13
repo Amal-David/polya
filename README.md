@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/Amal-David/polya/actions/workflows/tests.yml"><img src="https://github.com/Amal-David/polya/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
-  <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11 or newer">
+  <img src="https://img.shields.io/badge/python-3.11–3.15-blue" alt="Python 3.11 through 3.15">
 </p>
 
 Polya gives AI agents **21 composable operations** for transformations, symbolic
@@ -20,15 +20,17 @@ Built around reusable mechanisms across puzzle families, not one puzzle or prize
 ```bash
 git clone https://github.com/Amal-David/polya.git
 cd polya
-python -m pip install ".[solvers,learning]"
+python -m pip install ".[z3]"
+polya doctor
 polya find "unique forced contradiction"
 polya inspect symbolic.analyze
 ```
 
-Python 3.11+. Install `.` without extras for the reference solver and native
-automata learner. Inspect available backends with
-`polya run backends.inspect --json '{}'`. Source installation is the supported
-path; this project has not been published to PyPI.
+Python 3.15 is the development target; 3.11–3.14 retain compatible fallbacks.
+Install `.` for the reference solver and native learner, or add `.[cpsat]` and
+`.[learning]` for optional engines. See [Python support](docs/PYTHON-SUPPORT.md)
+for free-threaded testing, dependencies, profiling and JIT boundaries.
+Source installation is supported; this project is not published to PyPI.
 
 ## Use from Python
 
@@ -79,7 +81,7 @@ equivalence. Raw image/audio interpretation is outside the current implementatio
 
 ```bash
 python -m pip install -e ".[test,solvers,learning]"
-python -m pytest -q
+python -m pytest -q -rs
 python -m examples.structured_demo
 ```
 

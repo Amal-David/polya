@@ -6,6 +6,9 @@ Partial DFAs have a rejecting sink; Mealy machines must be total.
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Mapping
+from dataclasses import dataclass
+from .runtime import freeze_mapping
 from typing import Literal
 import time
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -63,6 +66,49 @@ class Machine(StrictModel):
 
 def as_machine(machine: Machine | dict) -> Machine:
     return machine if isinstance(machine, Machine) else Machine.model_validate(machine)
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedMachine:
+    """Owned immutable snapshot for repeated/concurrent reads.
+
+    Keep `simulate` as the independent, unprepared reference. Freezing this
+    object does not make a caller-supplied mutable Machine safe to edit in parallel.
+    """
+    kind: str
+    initial: str
+    alphabet: frozenset[int | str]
+    accepting: frozenset[str]
+    transitions: Mapping[tuple[str, int | str], tuple[str, str | None]]
+
+    def replay(self, word: list[int | str]) -> dict:
+        if type(word) is not list or len(word) > 10000:
+            raise ValueError('word must be a list of at most 10000 symbols')
+        if any(type(a) not in (int, str) or a not in self.alphabet for a in word):
+            raise ValueError('word contains a symbol outside the declared alphabet')
+        state, trace, outputs = self.initial, [self.initial], []
+        for symbol in word:
+            edge = self.transitions.get((state, symbol))
+            if edge is None:
+                state = None
+            else:
+                state, output = edge
+                if self.kind == 'mealy':
+                    outputs.append(output)
+            trace.append(state)
+        return {'final_state': state, 'state_trace': trace, 'outputs': outputs,
+                'accepted': state in self.accepting if self.kind == 'dfa' else None,
+                'scope': 'Exact replay of the supplied deterministic model, not the real puzzle.'}
+
+
+def prepare_machine(machine: Machine | dict) -> PreparedMachine:
+    """Validate and detach from caller-owned lists and Transition objects."""
+    raw = machine.model_dump() if isinstance(machine, Machine) else machine
+    model = Machine.model_validate(raw)
+    return PreparedMachine(model.kind, model.initial, frozenset(model.alphabet),
+                           frozenset(model.accepting), freeze_mapping({
+                               (t.source, t.symbol): (t.target, t.output)
+                               for t in model.transitions}))
 
 
 def simulate(machine: Machine | dict, word: list[int | str]) -> dict:

@@ -9,9 +9,11 @@ from pathlib import Path
 import platform
 import re
 import unicodedata
+from threading import RLock
+from importlib import metadata
+from .runtime import execution_mode
 from typing import Callable, Literal
 
-import cryptography
 import pydantic
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
@@ -226,20 +228,32 @@ def _backend_versions():
 def _compute_implementation_fingerprint() -> str:
     """Bind receipts/cache to source and relevant runtime, including Unicode semantics."""
     digest = hashlib.sha256()
-    for path in sorted(Path(__file__).parent.glob("*.py")):
-        digest.update(path.name.encode("utf8")); digest.update(path.read_bytes())
+    digest.update(_SOURCE_SNAPSHOT)
     digest.update(canonical_json({"python": platform.python_version(), "package": __version__,
-                                "cryptography": cryptography.__version__, "pydantic": pydantic.__version__,
+                                "cryptography": metadata.version("cryptography"), "pydantic": pydantic.__version__,
                                 "unicode": unicodedata.unidata_version, "backends": _backend_versions()}).encode())
     return digest.hexdigest()
 
 
-_LOADED_FINGERPRINT = _compute_implementation_fingerprint()
+# Freeze source bytes now, not after a later on-disk edit. Native discovery is
+# deferred until an experiment requests a receipt.
+_SOURCE_SNAPSHOT = b"".join(path.name.encode("utf8") + b"\0" + path.read_bytes()
+                            for path in sorted(Path(__file__).parent.glob("*.py")))
+_FINGERPRINT_LOCK = RLock()
+_LOADED_FINGERPRINT = None
+_FINGERPRINT_GENERATION = None
 
 
 def implementation_fingerprint() -> str:
-    # Bind to the code loaded in this process, not a later edit of its source files.
-    return _LOADED_FINGERPRINT
+    global _LOADED_FINGERPRINT, _FINGERPRINT_GENERATION
+    from .native_z3 import library_generation
+    generation = library_generation()
+    with _FINGERPRINT_LOCK:
+        if _LOADED_FINGERPRINT is None or _FINGERPRINT_GENERATION != generation:
+            _LOADED_FINGERPRINT = _compute_implementation_fingerprint()
+            _FINGERPRINT_GENERATION = generation
+        base = _LOADED_FINGERPRINT
+    return hashlib.sha256((base + canonical_json(execution_mode())).encode("utf8")).hexdigest()
 
 
 def prepare(operation_id: str, inputs: dict):

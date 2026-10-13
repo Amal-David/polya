@@ -1,0 +1,30 @@
+name: Python JIT experiment
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  jit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        jit: ['0', '1']
+    env:
+      PYTHON_JIT: ${{ matrix.jit }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,z3]'
+      - name: Refuse to label a non-JIT build as a JIT experiment
+        run: python -c 'import os,sys; assert sys._jit.is_available(), "Runner has no JIT build"; assert sys._jit.is_enabled() == (os.environ["PYTHON_JIT"] == "1")'
+      - run: python -m pytest -q -rs
+      - run: python scripts/benchmark_runtime.py --repeats 10 --words 10000 --output jit-benchmark.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jit-${{ matrix.jit }}
+          path: jit-benchmark.json

@@ -1,5 +1,8 @@
 """Small JSON CLI. Inputs may come from a file or stdin to avoid quoting errors."""
 
+# PEP 810; ignored on older Python. Keep registration and JSON semantics eager.
+__lazy_modules__ = ("sqlite3",)
+
 import argparse
 import json
 import sqlite3
@@ -11,6 +14,7 @@ from .jsonio import loads
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="polya")
     sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("doctor", help="Report interpreter features without loading solvers")
     sub.add_parser("mcp", help="Start the local stdio MCP server")
     discover = sub.add_parser("find")
     discover.add_argument("query", nargs="?", default="")
@@ -28,7 +32,10 @@ def main(argv=None):
         if args.command == "mcp":
             from .mcp_server import main as serve
             return serve()
-        if args.command == "find":
+        if args.command == "doctor":
+            from .runtime import inspect_runtime
+            result = inspect_runtime()
+        elif args.command == "find":
             result = find(args.query, limit=args.limit)
         elif args.command == "inspect":
             result = find(operation_id=args.operation_id)

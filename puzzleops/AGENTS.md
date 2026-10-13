@@ -16,3 +16,13 @@ isolation. Keep MCP stdout JSON-only and budget-dependent results out of reusabl
 certainty claims. Profile before native rewrites; never optimize away receipts,
 validation, verification, or provenance. Add regressions under tests/ and run the
 full suite before reporting completion.
+
+## Python 3.15
+
+Read [Python support](../docs/PYTHON-SUPPORT.md). Preserve 3.11 source parsing and
+feature-detect 3.15 builtins; keep aliases identical. Never change process-wide
+lazy-import, GIL or JIT policy. Publish native-library handles under the lock;
+never share mutable contexts, sessions or learner state across workers. Use
+`prepare_machine` for owned immutable replay snapshots and keep `simulate` as
+an independent reference. Report real-interpreter checks separately from fallback
+tests; a dependency import that re-enables the GIL invalidates a no-GIL claim.
