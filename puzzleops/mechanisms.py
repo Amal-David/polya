@@ -114,14 +114,24 @@ def scan(source: str, stages: list[list[dict]], checkpoint: dict, start: int = 0
             if key in cache:
                 output, info, error = cache[key]; cache_hits += 1
             else:
-                amount = max(1,len(text))
-                if work + amount > max_work:
-                    reason, paused = "work_limit", True; break
-                work += amount; kernel_calls += 1
                 operation = REGISTRY[step.operation_id]
-                output = None; info = {}
+                output = None; info = {}; inputs = None
                 try:
                     inputs = operation.request.model_validate(args).model_dump(mode="json")
+                except ValueError as exc:
+                    error = {"stage":stage_index, "operation_id":step.operation_id,
+                             "message":str(exc)[:500]}
+                # Charge the complete validated input, including constants and
+                # defaults. A small bound key must not hide a large ciphertext.
+                # This is a serialized-input work proxy, not a CPU instruction count.
+                amount = max(1,len(_json(inputs if inputs is not None else args)))
+                if work + amount > max_work:
+                    reason, paused = "work_limit", True; break
+                work += amount
+                try:
+                    if error is not None:
+                        raise ValueError(error["message"])
+                    kernel_calls += 1
                     result = operation.kernel(**inputs)
                     try:
                         result = operation.result.model_validate(result).model_dump(mode="json")
@@ -172,7 +182,9 @@ def scan(source: str, stages: list[list[dict]], checkpoint: dict, start: int = 0
             "work_units":work,"checkpoint":p.checkpoint.model_dump(),
             "scope":"Enumerated only the supplied ordered recipe product. Checkpoint matches are not new puzzle solutions. "
                     "Errors do not reject the broader hypothesis; source labels are caller assertions. "
-                    "Shared computation is not independent reproduction. Trace is not a source-dependency proof."}
+                    "Work units count canonical JSON characters of complete validated inputs on cache misses, including constants/defaults; "
+                    "they are not CPU instructions. Shared computation is not independent reproduction. "
+                    "Trace is not a source-dependency proof."}
 
 
 def operations(make):
