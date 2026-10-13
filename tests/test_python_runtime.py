@@ -61,6 +61,9 @@ def test_runtime_public_alias_is_the_same_implementation():
 @pytest.mark.skipif(sys.version_info < (3, 15), reason='Requires real CPython 3.15, not a mocked version')
 def test_native_315_features_and_lazy_sqlite_import():
     assert type(freeze_mapping({'a': 1})) is builtins.frozendict
+    from polya.automata import from_runs
+    from polya.prepared import prepare_machine
+    assert type(prepare_machine(from_runs([1])['machine']).symbol_ids) is builtins.frozendict
     child("import sys; import puzzleops.__main__; assert 'sqlite3' not in sys.modules")
     assert inspect_runtime()['profiling_package']
     assert inspect_runtime()['native_sentinel']

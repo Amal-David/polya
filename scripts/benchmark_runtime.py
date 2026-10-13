@@ -11,7 +11,8 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from polya.automata import Machine, prepare_machine, simulate
+from polya.automata import Machine, simulate
+from polya.prepared import prepare_machine
 from polya.runtime import inspect_runtime
 
 
@@ -37,13 +38,13 @@ def benchmark(repeats=5, words=2000, threads=1):
     preparation_ms = (time.perf_counter_ns() - prepare_start) / 1e6
     word = [0, 1] * 12
     expected = simulate(machine, word)
-    assert prepared.replay(word) == expected
+    assert prepared.simulate(word) == expected
     def reference():
         for _ in range(words):
             assert simulate(machine, word) == expected
     def repeated():
         for _ in range(words):
-            assert prepared.replay(word) == expected
+            assert prepared.simulate(word) == expected
     result = {'runtime': inspect_runtime(), 'word_count': words, 'word_length': len(word),
               'state_count': len(states), 'preparation_ms': preparation_ms,
               'reference': measure(reference, repeats), 'prepared': measure(repeated, repeats)}
@@ -52,7 +53,7 @@ def benchmark(repeats=5, words=2000, threads=1):
         sizes = [words // threads + (i < words % threads) for i in range(threads)]
         def chunk(count):
             for _ in range(count):
-                assert prepared.replay(word) == expected
+                assert prepared.simulate(word) == expected
         def threaded():
             with ThreadPoolExecutor(max_workers=threads) as pool:
                 list(pool.map(chunk, sizes))

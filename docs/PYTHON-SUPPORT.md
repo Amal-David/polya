@@ -26,12 +26,23 @@ Pydantic >=2.12 is required on 3.14; older environments retain their compatible
 minimums. These are feature/compatibility floors, not claims that every allowed
 version, OS or optional extension has been tested. CI records resolved versions.
 
+## Current dependency boundary
+
+The first actual 3.15 CI run installed and exercised the core, native Z3, the
+installed wheel, and the no-GIL build. The full optional install failed because
+`ortools>=9.12,<10` had no compatible 3.15 distribution on October 13, 2026.
+This is not reported as a passing CP-SAT integration. Keep a Python 3.14
+environment for CP-SAT; use `.[z3,learning]` on 3.15. AALpy has a separate
+mandatory 3.15 job. The all-engine jobs stay mandatory on 3.12 and 3.14.
+No ABI retagging, `--ignore-requires-python`, fallback pretending to be CP-SAT,
+or `continue-on-error` is used to hide this boundary.
+
 ## Features used, rather than merely advertised
 
 | Feature | Use in Polya |
 | --- | --- |
 | PEP 810 lazy imports | `__lazy_modules__` defers the CLI's SQLite import on 3.15. Older Python still parses the module. Registry construction and validation remain eager; no global import policy is changed. |
-| PEP 814 `frozendict` | `prepare_machine` owns an immutable transition snapshot with tuple values. Older runtimes use a private-copy mapping proxy. Conformance checks prepare once per model rather than once per word. |
+| PEP 814 `frozendict` | `prepare_machine` owns an immutable symbol-index map beside dense tuple transition tables. Older runtimes use a private-copy mapping proxy. Conformance checks prepare once per model rather than once per word. |
 | PEP 661 `sentinel` | The private native-library cache uses a named sentinel on 3.15, with a local-object fallback. Failed loads are not cached. |
 | PEP 799 profiling | The benchmark uses `profiling.tracing` on 3.15 and `cProfile` on older runtimes. Tachyon recipes below support sampling without instrumenting hot loops. |
 | PEP 686 default UTF-8 | Files/protocols retain explicit encodings; tests exercise Unicode clues with UTF-8 mode both enabled and disabled. No clue normalization changes. |
@@ -40,9 +51,12 @@ version, OS or optional extension has been tested. CI records resolved versions.
 
 The C ABI additions (`abi3t`, `PyBytesWriter`, finalization guards), tail-call
 interpreter, and frame pointers belong to CPython/native build tooling. Polya
-currently ships pure Python, not its own CPython extension. Dependency authors
-must supply compatible wheels. Do not relabel a wheel or claim an ABI flag makes
-an extension thread-safe. If native kernels are added, preserve frame pointers,
+ships Python plus an opt-in standalone Rust C-ABI experiment, not a CPython
+extension. Its current main implementation and independent tests are preserved.
+CI compiles and checks the native experiment on 3.12, 3.15, and 3.15t.
+Dependency authors must supply compatible wheels. Do not relabel a wheel or claim an ABI flag makes
+an extension thread-safe. The Rust experiment is built with frame pointers for
+native profiling. For future extension modules, preserve frame pointers,
 use the relevant current PyO3/build support, and verify each platform.
 
 New typing forms and unpacking syntax are not inserted gratuitously: preserving
@@ -52,8 +66,8 @@ unverified native extensions. A newer interpreter does not make them isolated.
 
 ## Concurrency boundaries
 
-Share only the immutable result of `prepare_machine`, and keep input words
-stable for each call. Do not share mutable Pydantic models, SQLite sessions,
+Share only the immutable result of `polya.prepared.prepare_machine`, and keep
+input words stable for each call. Do not share mutable Pydantic models, SQLite sessions,
 learners, solver contexts or callbacks across workers. MCP remains synchronous.
 Independent native solves own independent contexts; no global solver is reused.
 

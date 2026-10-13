@@ -6,6 +6,7 @@ from .model import PuzzleModel,verify
 from .symbolic import solve,analyze,compare_hypotheses,capabilities
 from .learning import learn_local
 from .native_z3 import Emitter
+from .prepared import simulate_many
 
 class Empty(StrictModel): pass
 class ModelInput(StrictModel):
@@ -32,6 +33,10 @@ class RunsInput(StrictModel):
 class ReplayInput(StrictModel):
     machine: Machine
     word: list[int|str]=Field(max_length=10000)
+class ReplayManyInput(StrictModel):
+    machine: Machine
+    words: list[list[int|str]]=Field(max_length=256)
+
 class DistinguishInput(StrictModel):
     left: Machine
     right: Machine
@@ -60,6 +65,11 @@ def extension_ops(make):
     common={'backend':str,'backend_version':str|None,'active_constraint_ids':list[str],
             'enabled_hypotheses':list[str],'answer_variables':list[str],'stats':dict,'scope':str}
     return [
+        make('automata.simulate_many','Replay a batch of sequences','Prepare a detached transition snapshot once for a bounded batch.',
+             ReplayManyInput,simulate_many,'automata batch replay sequence prepared throughput',
+             'Same exact deterministic-model replay as separate calls; not real-world observations.',
+             '256 words, 10000 total symbols, standard output limit. No normalization or deduplication.',
+             results=list[dict],word_count=int,symbol_count=int,scope=str),
         make('backends.inspect','Inspect available backends','Report runtime availability and supported capabilities.',
              Empty,capabilities,'backends capabilities z3 cpsat ortools learning aalpy offline',
              'Availability only, not a claim that an optional dependency passed integration tests.',

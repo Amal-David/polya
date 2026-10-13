@@ -3,7 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import product
 import random
 import pytest
-from polya.automata import Machine, from_runs, prepare_machine, simulate
+from polya.automata import Machine, from_runs, simulate
+from polya.prepared import prepare_machine
 
 
 @pytest.mark.parametrize('runs', [[], [1], [2], [1, 1], [2, 1]])
@@ -12,7 +13,7 @@ def test_prepared_dfa_matches_independent_reference(runs):
     prepared = prepare_machine(machine)
     for length in range(7):
         for word in product([0, 1], repeat=length):
-            assert prepared.replay(list(word)) == simulate(machine, list(word))
+            assert prepared.simulate(list(word)) == simulate(machine, list(word))
 
 
 @pytest.mark.parametrize('seed', range(20))
@@ -26,25 +27,25 @@ def test_prepared_mealy_matches_reference(seed):
     words = [[rng.randrange(2) for _ in range(rng.randrange(32))] for _ in range(40)]
     expected = [simulate(machine, word) for word in words]
     with ThreadPoolExecutor(max_workers=4) as pool:
-        assert list(pool.map(prepared.replay, words)) == expected
+        assert list(pool.map(prepared.simulate, words)) == expected
 
 
 def test_snapshot_is_detached_from_mutable_pydantic_input():
     machine = Machine.model_validate(from_runs([1])['machine'])
     prepared = prepare_machine(machine)
-    before = prepared.replay([0, 1])
+    before = prepared.simulate([0, 1])
     machine.transitions.clear()
     machine.accepting.clear()
     machine.alphabet.clear()
-    assert prepared.replay([0, 1]) == before
+    assert prepared.simulate([0, 1]) == before
     with pytest.raises(TypeError):
-        prepared.transitions[('q0', 0)] = ('q1', None)
+        prepared.symbol_ids[0] = 99
 
 
 @pytest.mark.parametrize('word', [(), [True], ['unknown'], [0] * 10001])
 def test_prepared_replay_retains_admission_limits(word):
     with pytest.raises(ValueError):
-        prepare_machine(from_runs([1])['machine']).replay(word)
+        prepare_machine(from_runs([1])['machine']).simulate(word)
 
 
 def test_preparation_revalidates_a_mutated_model():

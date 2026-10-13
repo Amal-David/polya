@@ -12,11 +12,18 @@ For using the tools to investigate a puzzle, read [agent usage](docs/AGENT-USAGE
 For runtime changes, also read [architecture](docs/ARCHITECTURE.md).
 
 ```bash
-python -m pip install -e ".[test,solvers,learning]"
+python -m pip install -e ".[test,z3,learning]"
+python -m polya doctor
 python -m polya run backends.inspect --json '{}'
 python -m pytest -q
 python -m examples.structured_demo
 ```
+
+Python 3.15 is the development target; retain 3.11–3.14 compatibility.
+Read [Python support](docs/PYTHON-SUPPORT.md) before selecting optional engines.
+CP-SAT currently requires a separate Python 3.14-or-older environment because
+its upstream 3.15 distribution is unavailable. Full-engine CI stays mandatory
+on supported runtimes; do not relabel a failed dependency install as success.
 
 A core-only install is `python -m pip install -e ".[test]"`. Missing optional
 packages are a limitation, not a passing integration test. Inspect skips with
