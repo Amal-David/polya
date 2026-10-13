@@ -1,23 +1,64 @@
 # Architecture
 
-Polya separates operation execution from the agent's strategy. Python, the JSON CLI,
-and local MCP share discoverable, typed operations and explicit postconditions.
+Polya supplies reusable computational operations; the calling agent owns strategy.
+The project is organized around mechanisms shared across puzzle families, not a
+particular puzzle, reward type, or mandatory research workflow.
 
-`polya/` aliases the shared `puzzleops/` engine. The catalog validates and normalizes
-inputs, computes version-bound identities, executes kernels, validates outputs, and
-returns receipts. Session caching is optional and does not constitute independent
-reproduction. Budget-dependent operations preserve their uncertainty semantics.
+## Implemented layers
 
-Symbolic models compile through the Z3 native C API or the optional CP-SAT adapter.
-A separate Python evaluator verifies witnesses; a finite exhaustive engine supports
-small differential tests. Automata operations retain deterministic replay and bounded
-learning. Transformation primitives preserve byte/codepoint and traversal semantics.
+1. **Python, CLI, MCP:** `polya` is the public facade over the shared `puzzleops`
+   implementation. Existing imports and operation IDs remain compatible.
+2. **Operation contracts:** a searchable registry exposes strict Pydantic input
+   schemas, output schemas, postconditions, limits, and cache policy. Callers
+   inspect an operation before supplying inputs.
+3. **Typed representations:** exact bytes and symbol offsets, indexed candidate
+   domains, finite tables, a non-executable symbolic AST, and deterministic
+   DFA/Mealy models. Speculative rules require explicit activation.
+4. **Execution:** local transforms; finite-table propagation; a reference
+   interpreter; native Z3; optional CP-SAT; automata simulation/comparison;
+   native and optional AALpy learning.
+5. **Results and receipts:** scope, status, budgets, source/runtime fingerprints,
+   and input/output hashes. SAT witnesses are independently interpreted in Python.
+6. **Optional sessions:** a local SQLite exact-request cache, separate from
+   stateless operations. Budget-dependent operations bypass it.
 
-The transport has no network/shell/wallet endpoints. Typed validation and quotas are
-not a sandbox: native libraries can fail, callbacks can block, and hard isolation
-requires a process boundary. Do not expose this prototype publicly as-is.
+## Trust boundaries
 
-Current limits include synchronous execution, no hard cancellation, simple lexical
-operation discovery, no learned cost planner, and no raw image/audio perception.
-A persistent hypothesis/provenance graph is a proposed layer, not implemented state.
-See [coverage](HOLISTIC-COVERAGE.md) and [performance](PERFORMANCE.md).
+An exact calculation does not establish that the input represents the intended
+clue. Cross-backend agreement can validate execution while sharing a bad
+formalization. Source labels are not authenticated evidence. An unsat core is
+relative to encoded domains and need not be minimal.
+
+Bounded learning reports finite conformance, never global equivalence. Cached
+results are not independent reproduction. Operational errors, unavailable
+backends and partial execution are not negative puzzle results.
+
+The MCP transport exposes only discovery and bounded operation execution. It
+has no live-service, wallet, arbitrary-code, filesystem browsing, or HTTP endpoint.
+Python callbacks are trusted local code and cooperative limits are not a sandbox.
+
+## Growth direction
+
+A future shared artifact representation should preserve source bytes, coordinates,
+time windows, competing transcriptions, and transformation provenance across
+text, visual, audio, spatial, logical, and interactive workloads. Large artifacts
+should use stable handles rather than repeatedly serializing full data into an
+agent context. These broader representations are not implemented in 0.2.1.
+
+Further candidate operations should support streaming transformations, explicit
+normalization, stable enumeration, dependency-aware reuse, and separately checked
+acceptance conditions. Persistent hypothesis graphs, retraction propagation,
+learned operation selection, MaxSAT, and passive automata learning remain proposals.
+
+The performance direction is Python-facing APIs over mature native backends,
+with optional Rust kernels for measured bottlenecks. Do not replace a solver
+with a slower custom implementation just to change languages. See
+[performance](PERFORMANCE.md) and [coverage](HOLISTIC-COVERAGE.md).
+
+## Contribution rule
+
+An operation earns a stable place by establishing one reusable result, not by
+encoding a complete puzzle-specific strategy. Require positive and negative
+fixtures, explicit failure states, independent checks where feasible, and useful
+composition with other operations. Keep broad plans distinguishable from the
+actual installed operation registry.

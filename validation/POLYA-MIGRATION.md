@@ -1,41 +1,37 @@
-# Polya import and agent setup validation
+# Polya 0.2.1 - repository migration validation
 
-Review date: October 13, 2026. Base main: 92ea29d6. Import head inspected: b6fb9413.
-The import is a descendant of main; no unrelated history needs overwriting.
-The root agent guide and README-linked docs were missing and are restored here.
+Validated locally October 13, 2026, on Linux x86-64 / Python 3.13.5.
 
-The imported runtime, Polya alias directory, examples, and existing test directory
-were reconstructed locally and checked against GitHub Git blob/tree hashes before
-testing. The 0.2.1 delivery archive was the source for matching files, not an excuse
-to overwrite newer imported code. Existing solver and learning behavior is unchanged.
+The original PuzzleOps 0.2.0 baseline passed 330 tests and 238 subtests, with two
+optional integrations skipped. The Polya facade, commands, package metadata,
+and five compatibility tests bring this to **335 tests and 238 subtests passed**,
+with the same two skips. A fresh rerun during publication took 9.84 seconds.
+This is test duration, not a performance or agent-speedup benchmark.
 
-New checks cover shared agent guidance, local documentation links, the documented
-CLI operation, and bounded benchmark execution. Commands:
+The skipped integrations are OR-Tools CP-SAT and AALpy, unavailable in this
+runtime. Native Z3 4.13.3.0 was actually executed alongside independent Python
+reference checks. The full-dependency CI job requires optional packages before
+running integrations. Consult actual workflow results; configuration is not a
+claim that hosted CI succeeded.
+
+A polya-puzzles wheel was built without downloading dependencies, installed to
+an isolated target directory and exercised outside the checkout. Polya and
+legacy imports, symbolic analysis, and stdio MCP initialization/listing passed.
+This does not constitute a clean network install or individual host certification.
+
+The public facade aliases existing modules, not copies. All 21 operation IDs
+remain compatible. The server identifies as polya while MCP tool names remain
+puzzle.find and puzzle.run. All runtime modules, Python tests, and synthetic
+examples are included in the repository.
 
 ```bash
-python -m pytest -q -rs
+python -m pip install -e '.[test,solvers,learning]'
+python -m pytest -q
 python -m examples.structured_demo
-python scripts/benchmark_operations.py --repeats 5 --profile /tmp/polya-profile.txt --output /tmp/polya-benchmark.json
+polya run backends.inspect --json '{}'
 ```
 
-Optional OR-Tools and AALpy are not installed in the review container; their skips
-must not be reported as passing integrations. Native Z3 and its independent reference
-checks execute. GitHub Actions status is separate from this local validation record.
-The PR records final executed test outcomes and the exact merged head.
-
-## Diagnostic timings
-
-One warm Linux x86-64 / Python 3.13.5 run, five samples per workload:
-
-| Workload | Public API median | Kernel-only median |
-| --- | ---: | ---: |
-| 1000 emitted candidates | 9.128 ms | 2.189 ms |
-| 10000-codepoint grid | 3.985 ms | 0.942 ms |
-| Equivalent 200-state machines | 10.578 ms | 3.818 ms |
-| Trivial forced integer / Z3 | 16.255 ms | 12.360 ms |
-
-These are separate diagnostic timings, not a language comparison. cProfile exposed
-repeated native-library discovery plus validation and serialization costs. Machine
-load affects values; do not use these timings as CI pass/fail thresholds. No Rust
-rewrite, real open-puzzle solution, or improved agent solve rate is established.
-See [performance policy](../docs/PERFORMANCE.md).
+Native portability outside the tested environment remains to be established.
+No Rust kernel, real open-puzzle solution, universal speedup, or improved agent
+reasoning has been measured. Solver answers concern the encoded model; bounded
+learning conformance is not a global-equivalence proof.

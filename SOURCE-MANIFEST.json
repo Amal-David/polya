@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "project": "Polya",
+  "version": "0.2.1",
+  "source_archive": "puzzleops-0.2.0.zip",
+  "source_archive_sha256": "4288b716a05b8d65c168b8aa8c0b63aeb1db4cc8bb6276a371f1a9509d60d9cd",
+  "verified_code_trees": {
+    "puzzleops": "6a8fd4f3d9345fe7e721e1fdb8405add4bef1a64",
+    "polya": "1be9accb650ccb38bc69faec4a3de5aca64d4f6e",
+    "tests": "828fd17e5992870d73081a30ff047469bfb6032a",
+    "examples": "4ff6cc1305fd795f8fd31bf4beb021b717deb28c"
+  },
+  "counts": {"implementation_modules": 16, "facade_modules": 16, "test_files": 14, "example_and_fixture_files": 4},
+  "validation": {"passed": 335, "skipped": 2, "subtests_passed": 238, "environment": "Linux x86-64, Python 3.13.5", "native_z3": "4.13.3.0"},
+  "scope": "Git tree hashes bind the published code to the locally tested migration. Documentation was condensed for repository publication. Not a signature, hosted CI certificate, or proof of puzzle success."
+}
