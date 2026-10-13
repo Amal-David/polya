@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "polya-puzzles"
+version = "0.2.1"
+description = "Composable puzzle-solving tools for AI agents"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.10,<3", "cryptography>=44,<51"]
+license = {text = "MIT"}
+keywords = ["puzzle-solving", "ai-agents", "mcp", "constraints", "automata", "z3"]
+
+[project.urls]
+Homepage = "https://github.com/Amal-David/polya"
+Repository = "https://github.com/Amal-David/polya"
+Issues = "https://github.com/Amal-David/polya/issues"
+Documentation = "https://github.com/Amal-David/polya/tree/main/docs"
+
+[project.optional-dependencies]
+solvers = ["z3-solver>=4.13,<5", "ortools>=9.12,<10"]
+learning = ["aalpy>=1.5,<2"]
+test = ["pytest>=8,<10", "jsonschema>=4,<5"]
+
+[project.scripts]
+polya = "puzzleops.__main__:main"
+polya-mcp = "puzzleops.mcp_server:main"
+puzzleops = "puzzleops.__main__:main"
+puzzleops-mcp = "puzzleops.mcp_server:main"
+
+[tool.setuptools.packages.find]
+include = ["polya*", "puzzleops*"]
