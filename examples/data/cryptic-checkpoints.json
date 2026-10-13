@@ -1,0 +1,53 @@
+{
+  "sources": {
+    "gsmg": {
+      "repo": "puzzlehunt/gsmgio-5btc-puzzle",
+      "commit": "fb92dd15487c6e2d275adb8c923698b7166c328e",
+      "path": "README.md",
+      "blob_sha": "3b75f64dc0394c3a7174bf5783a2d3b5db168600",
+      "representation": "Public numerical/symbol transcriptions; not downloaded original image or new visual extraction."
+    },
+    "k1": {
+      "repo": "stblake/colossus",
+      "path": "ciphers/kryptos/K1.txt",
+      "blob_sha": "f3a9f22168082933208369a865adf83dd5818db4",
+      "representation": "Published historical ciphertext; one trailing newline removed explicitly. Known K1 alphabet/key/plaintext are retrospective calibration, not a newly discovered answer."
+    }
+  },
+  "gsmg_grid": {
+    "rows": [
+      "00110100101100",
+      "11110011101011",
+      "11011101001001",
+      "01101000011101",
+      "01100011000110",
+      "10011000100011",
+      "10011100010000",
+      "11100000001000",
+      "00011101111101",
+      "11111100110001",
+      "11010000011011",
+      "11110010101100",
+      "01011101000110",
+      "01101101101011"
+    ],
+    "expected": "gsmg.io/theseedisplanted"
+  },
+  "gsmg_decimal": [
+    {
+      "symbols": "agdafaoaheiecggchgicbbhcgbehcfcoabicfdhhcdbbcagbdaiobbgbeadedde",
+      "expected": "lastwordsbeforearchichoice",
+      "published_digits": "174161018595377387932283725836301293648834223172419022725145445"
+    },
+    {
+      "symbols": "cfobfdhgdobdgooiigdocdaoofidh",
+      "expected": "thispassword",
+      "published_digits": "36026487402470099740341006948"
+    }
+  ],
+  "kryptos_k1": {
+    "ciphertext": "EMUFPHZLRFAXYUSDJKZLDKRNSHGNFIVJYQTQUXQBQVYUVLLTREVJYQTMKYRDMFD",
+    "alphabet": "KRYPTOSABCDEFGHIJLMNQUVWXZ",
+    "plaintext": "BETWEENSUBTLESHADINGANDTHEABSENCEOFLIGHTLIESTHENUANCEOFIQLUSION"
+  }
+}

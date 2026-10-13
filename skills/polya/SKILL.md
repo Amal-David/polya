@@ -8,6 +8,8 @@ description: Use Polya to run bounded, composable puzzle experiments with explic
 Use when the task is to investigate a puzzle using the installed Polya library.
 This is a reusable skill document, not an automatic agent installation.
 Read [agent usage](../../docs/AGENT-USAGE.md) and [MCP setup](../../docs/MCP.md).
+For cryptographic puzzles, start with [the domain guide](../../docs/CRYPTO-PUZZLES.md):
+use extraction and cipher mechanisms before forcing a clue into symbolic rules.
 
 First inspect available backends. Discover with puzzle.find, inspect one exact
 operation contract, then call puzzle.run. The CLI equivalents are:
