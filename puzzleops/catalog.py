@@ -197,6 +197,10 @@ from .crypto_targets import operations as target_ops
 from .artifact_png import operations as png_ops
 OPS.extend(target_ops(_op))
 OPS.extend(png_ops(_op))
+from .bitstreams import operations as bitstream_ops
+from .plans import operations as plan_ops
+OPS.extend(bitstream_ops(_op))
+OPS.extend(plan_ops(_op))
 from .jacobian_bridge import operations as jacobian_ops
 OPS.extend(jacobian_ops(_op))
 from .proposals import operations as proposal_ops

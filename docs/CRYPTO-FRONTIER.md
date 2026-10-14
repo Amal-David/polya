@@ -12,6 +12,7 @@ and exact-target bridge while leaving the hard mechanism-discovery problem expli
 ```bash
 python -m pip install -e ".[imaging]"
 python -m polya inspect artifact.png_bitplane
+python -m polya inspect mechanism.plan_scan
 python -m polya inspect crypto.openssl_scan
 python -m examples.crypto_frontier_demo
 ```
@@ -19,6 +20,9 @@ python -m examples.crypto_frontier_demo
 An agent can extract a native PNG channel bit plane, compose grid/cipher recipes,
 serialize the resulting candidates as exact bytes, and check declared gates.
 It does not need to reinterpret output as English or write a Bitcoin checker.
+The demo now declares and executes this path through `mechanism.plan_scan`, with
+explicit typed references, binary conversions, source-coordinate derivations and
+safe resumption. See [typed plans and execution-backed history](TYPED-PLANS.md).
 
 `artifact.png_bitplane` accepts canonical base64 bytes of a single-frame 8-bit
 PNG. Choose the native channel and bit explicitly. The result preserves source

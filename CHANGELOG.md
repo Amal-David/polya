@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## Unreleased after 0.2.2
+
+- Add bounded `mechanism.plan_scan` with typed source/output references, explicit
+  binary conversions, exact coordinate derivations and plan-bound resume IDs.
+- Add `bits.invert`, `bits.pack`, `symbols.to_bits` and `bytes.slice`; preserve
+  binary/leading-zero/tail semantics through the 65,536-bit PNG route.
+- Execute the raw-PNG frontier demo through the agent-facing plan contract.
+- Add opt-in `Ledger.run` receipt-linked execution history and `plan_coverage`
+  restart queries with gaps, overlaps, invalid inputs and retraction exclusion.
+- Keep existing APIs and the package version unchanged pending a release.
+  Symbolic deduction reuse, improved hypothesis comparison and learned mechanism
+  discovery are deferred; no new open-puzzle solve or agent-speedup is claimed.
 
 - Preserve supplied checkpoint digests and unauthenticated source labels in
   specialist-proposal results, constrain the advertised status values, and

@@ -70,7 +70,7 @@ It exposes **`puzzle.find`** to discover or inspect an operation and
 | --- | --- |
 | Image evidence | Lossless PNG channel/bit selection, source hashes and pixel coordinates |
 | Cryptic decoding | Bifid, Vigenere/Beaufort, checkerboards, explicit alphabets and radix conventions |
-| Mechanism search | Finite recipe products, shared intermediates, source-labelled cribs, scoped checkpoints |
+| Mechanism search | Typed artifact-to-target plans, bound resume IDs, explicit losses and shared intermediates |
 | Crypto targets | Calibrated multi-lock scans, exact SHA256/P2PKH checks, binary-safe readings and bound resume IDs |
 | Constraints | Z3 and CP-SAT adapters, finite reference solver, answer uniqueness, forced values |
 | Automata | Sequence rules, batched replay, shortest distinguishing inputs, bounded active learning |
@@ -82,7 +82,7 @@ outside the implementation. No agent-speedup or new open-puzzle solve is claimed
 
 ## Documentation
 
-[Python support](docs/PYTHON-SUPPORT.md) · [Crypto frontier](docs/CRYPTO-FRONTIER.md) · [Cipher recipes](docs/CRYPTO-PUZZLES.md) ·
+[Typed plans](docs/TYPED-PLANS.md) · [Python support](docs/PYTHON-SUPPORT.md) · [Crypto frontier](docs/CRYPTO-FRONTIER.md) · [Cipher recipes](docs/CRYPTO-PUZZLES.md) ·
 [Quickstart](docs/QUICKSTART.md) · [Symbolic models](docs/SYMBOLIC.md) ·
 [Automata](docs/AUTOMATA.md) · [Architecture](docs/ARCHITECTURE.md) ·
 [Coverage](docs/HOLISTIC-COVERAGE.md) · [Validation](validation/POLYA-MIGRATION.md) ·
