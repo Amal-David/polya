@@ -239,6 +239,7 @@ def _compute_implementation_fingerprint() -> str:
     """Bind receipts/cache to source and relevant runtime, including Unicode semantics."""
     digest = hashlib.sha256()
     digest.update(_SOURCE_SNAPSHOT)
+    digest.update(b"jacobian-pinned-runtime\0" + _JACOBIAN_PIN_RUNTIME_SNAPSHOT)
     digest.update(canonical_json({"python": platform.python_version(), "package": __version__,
                                 "cryptography": metadata.version("cryptography"), "pydantic": pydantic.__version__,
                                 "unicode": unicodedata.unidata_version, "backends": _backend_versions()}).encode())
@@ -249,6 +250,18 @@ def _compute_implementation_fingerprint() -> str:
 # deferred until an experiment requests a receipt.
 _SOURCE_SNAPSHOT = b"".join(path.name.encode("utf8") + b"\0" + path.read_bytes()
                             for path in sorted(Path(__file__).parent.glob("*.py")))
+
+
+def _execution_pin_fields(value: dict) -> dict:
+    # Do not churn receipt identity for a new observed upstream HEAD. Only a
+    # promoted runtime/release changes the execution environment.
+    return {name:value[name] for name in
+            ("execution", "version", "release_source_sha", "wheel_sha256")}
+
+
+_JACOBIAN_PIN_RUNTIME_SNAPSHOT = canonical_json(_execution_pin_fields(
+    json.loads((Path(__file__).parent / "jacobian_pin.json").read_text(encoding="utf8"))
+)).encode("utf8")
 _FINGERPRINT_LOCK = RLock()
 _LOADED_FINGERPRINT = None
 _FINGERPRINT_GENERATION = None

@@ -164,3 +164,32 @@ def test_non_json_and_oversized_payloads_are_rejected_without_leaking_secrets(fa
                             'payload':{'not_json':float('nan')}})
     outcome=run_math('integer.compute.extended_gcd',{'long':'x'*550000})
     assert outcome['status']=='PROTOCOL_ERROR'
+
+
+def test_runtime_pin_revisions_affect_provenance_not_source_observations():
+    from polya.jacobian_bridge import pin
+    from puzzleops.catalog import _execution_pin_fields, _compute_implementation_fingerprint
+    base=pin()
+    assert _execution_pin_fields(base)==_execution_pin_fields({**base,"upstream_main_sha":"a"*40})
+    assert _execution_pin_fields(base)!=_execution_pin_fields({**base,"version":"999.0"})
+    from unittest.mock import patch
+    before=_compute_implementation_fingerprint()
+    with patch('puzzleops.catalog._JACOBIAN_PIN_RUNTIME_SNAPSHOT', b'different-reviewed-upstream-runtime'):
+        after=_compute_implementation_fingerprint()
+    assert before!=after
+
+
+@pytest.mark.skipif(sys.platform=='win32', reason='POSIX process group isolation')
+def test_delegated_backend_is_its_own_posix_process_group(fake_backend, monkeypatch):
+    import signal
+    from unittest.mock import patch
+    from polya.jacobian_bridge import _bridge
+    seen=[]
+    original=os.killpg
+    def record(pgid,sig):
+        seen.append((pgid,sig))
+        return original(pgid,sig)
+    with patch('puzzleops.jacobian_bridge.os.killpg', side_effect=record):
+        r=find_math(query='extended gcd')
+    assert r['status']=='OK'
+    assert seen and all(sig==signal.SIGKILL for _,sig in seen)

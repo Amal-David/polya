@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import queue
 import re
+import signal
 import shutil
 import subprocess
 import threading
@@ -152,17 +153,40 @@ def _project(result: dict, tool: str) -> dict:
 
 
 def _stop(proc: subprocess.Popen) -> None:
-    if proc.poll() is None:
-        try: proc.terminate()
-        except OSError: pass
-        try: proc.wait(timeout=0.5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            try: proc.wait(timeout=1)
-            except subprocess.TimeoutExpired: pass
+    """Reap the host AND its workers after a response, deadline, or error.
+
+    The Unix host has a private session. Windows uses the fixed taskkill /T
+    process-tree command (never a puzzle-controlled executable or shell string).
+    The operator-installed Jacobian runtime is trusted, but an unresponsive
+    backend must not silently leave long-running solver workers behind.
+    """
     if proc.stdin:
         try: proc.stdin.close()
         except OSError: pass
+    if os.name == "posix":
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            # Some hardened runners disallow process-group signals. Reap the
+            # direct child; this degraded path cannot guarantee descendants.
+            if proc.poll() is None:
+                try: proc.kill()
+                except ProcessLookupError: pass
+    elif os.name == "nt" and proc.poll() is None:
+        try:
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           check=False, timeout=2)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    if proc.poll() is None:
+        try: proc.kill()
+        except (OSError, ProcessLookupError): pass
+    try: proc.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        pass
     if proc.stdout:
         try: proc.stdout.close()
         except OSError: pass
@@ -183,7 +207,7 @@ def _bridge(tool: str, arguments: dict, timeout_ms: int) -> dict:
     try:
         proc = subprocess.Popen([executable], stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                bufsize=0, close_fds=True)
+                                bufsize=0, close_fds=True, start_new_session=os.name=="posix")
         inbox: queue.Queue = queue.Queue(maxsize=32)  # Bounds noisy upstream notifications.
         reader = threading.Thread(target=_read_messages, args=(proc.stdout, inbox), daemon=True)
         reader.start()
