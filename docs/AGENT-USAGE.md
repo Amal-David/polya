@@ -23,7 +23,13 @@ Record artifact hash/source, operation/version, full parameters, active assumpti
 answer variables, backend/version, time/query/state limits, outcome, completeness,
 checker evidence, counterarguments, and remaining uncertainty. Revisit dependent
 claims if an extraction or assumption is corrected; do not silently erase history.
-Execution receipts and the SQLite cache are not yet a full hypothesis ledger.
+For typed artifact-to-target experiments, use `mechanism.plan_scan` and inspect
+its explicit conversions, coordinate derivations, plan ID and coverage. Opt-in
+`Ledger.run` records actual receipt-linked pages; `plan_coverage` recovers gaps,
+overlaps and retractions after restart. Keep the original plan alongside the
+receipt: history stores compact outcomes, not source artifacts. See
+[typed plans](TYPED-PLANS.md). This remains execution history, not an autonomous
+hypothesis reasoner or independent evidence.
 
 ## Interpretation boundaries
 

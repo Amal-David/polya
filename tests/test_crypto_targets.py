@@ -230,9 +230,10 @@ def test_finite_parameter_search_has_no_success_on_wrong_target():
     pytest.importorskip('PIL')
     import json
     from pathlib import Path
-    from examples.crypto_frontier_demo import extract_candidates
+    from examples.crypto_frontier_demo import frontier_plan
     case = json.loads((Path(__file__).parents[1]/'examples/data/crypto-hidden-parameters.json').read_text())[0]
     case['lock']['target']['value'] = '00'*32
-    result = scan_candidates(candidates=extract_candidates(case['png_base64']), locks=[case['lock']])
+    result = run('mechanism.plan_scan', {'plan': frontier_plan(case['png_base64'], case['lock'])})['result']
     assert result['complete'] and result['matches'] == []
-    assert any(t['padding_valid'] for t in result['trials'])
+    # SHA256 mismatch is reached only after valid padding in an OpenSSL plan.
+    assert any(t['outcome'] == 'NO_TARGET_MATCH' for t in result['trials'])
