@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import difflib
 import hashlib
 import json
 from pathlib import Path
@@ -113,6 +114,7 @@ class Operation:
     limits: str
     version: str = "1"
     cacheable: bool = True
+    example: dict | None = None
 
     def contract(self):
         return {"operation_id": self.operation_id, "version": self.version,
@@ -120,33 +122,38 @@ class Operation:
                 "input_schema": self.request.model_json_schema(),
                 "output_schema": self.result.model_json_schema() if self.result else {"type": "object"},
                 "postcondition": self.postcondition, "limits": self.limits,
-                "cache_policy": "exact_request" if self.cacheable else "never"}
+                "cache_policy": "exact_request" if self.cacheable else "never", "example": self.example}
 
 
-def _op(operation_id, title, description, request, kernel, terms, postcondition, limits, *, cacheable=True, **result_fields):
+class ValidationError(ValueError):
+    """Input rejection without model class names; named so error_type stays ValidationError."""
+
+
+def _op(operation_id, title, description, request, kernel, terms, postcondition, limits, *, cacheable=True, example=None, **result_fields):
     result = output_model(operation_id.replace(".", "_") + "_result", **result_fields) if result_fields else None
-    return Operation(operation_id, title, description, request, result, kernel, terms, postcondition, limits, cacheable=cacheable)
+    return Operation(operation_id, title, description, request, result, kernel, terms, postcondition, limits,
+                     cacheable=cacheable, example=example)
 
 
 OPS = [
     _op("bytes.decode", "Decode bytes", "Decode strict canonical base64 or hexadecimal.",
         DecodeInput, primitives.bytes_decode, "encoding base64 hex binary decode",
         "Exact bytes under the selected encoding; no whitespace repair or text guessing.", "65536 decoded bytes.",
-        hex=str, byte_length=int, sha256=str, encoding=str),
+        example={"value": "SGVsbG8=", "encoding": "base64"}, hex=str, byte_length=int, sha256=str, encoding=str),
     _op("text.profile", "Describe a symbol stream", "Return codepoint counts, empirical entropy, coincidence and grid dimensions.",
         TextInput, primitives.text_profile, "alphabet frequency entropy coincidence statistics symbols factor length",
         "Exact counts/dimensions; floating descriptive statistics. No interpretation is inferred.", "65536 codepoints.",
-        codepoint_length=int, utf8_byte_length=int, alphabet_size=int, counts=dict[str,int],
+        example={"text": "ATTACKATDAWN"}, codepoint_length=int, utf8_byte_length=int, alphabet_size=int, counts=dict[str,int],
         index_of_coincidence=float|None, empirical_entropy_bits=float, rectangular_dimensions=list[list[int]], interpretation=str),
     _op("grid.read", "Read a rectangular text grid", "Reorder an exact rectangular grid while retaining source offsets.",
         GridInput, primitives.grid_read, "transposition columns rows snake boustrophedon extraction route grid reverse",
         "A permutation of source codepoints under the declared grid and reading order.", "65536 codepoints; no padding or truncation.",
-        text=str, source_offsets=list[int], unit=str, rows=int, columns=int, order=str, reverse=bool),
+        example={"text": "abcdef", "rows": 2, "columns": 3, "order": "column"}, text=str, source_offsets=list[int], unit=str, rows=int, columns=int, order=str, reverse=bool),
     _op("candidate.expand", "Page a finite candidate product", "Expand explicit slot alternatives with stable indices and complete derivation choices.",
         ExpandInput, primitives.candidate_expand, "cartesian candidate words product slots enumerate batch search space normalization",
         "Exactly the requested half-open index range of the ordered slot product. Duplicates preserved.",
         "32 slots, <=1000 outputs/page, 100000 output codepoints. Mixed-radix direct seeking.",
-        total_assignments=int, start=int, stop=int, emitted=int, candidates=list[dict], next_start=int|None,
+        example={"slots": [["red", "blue"], ["cat", "dog"]], "separator": " "}, total_assignments=int, start=int, stop=int, emitted=int, candidates=list[dict], next_start=int|None,
         complete=bool, status=Literal["COMPLETE","PARTIAL"], scope=str),
     _op("crypto.openssl_inspect", "Inspect legacy salted framing", "Recognize Salted__ with 8-byte salt and 16-byte-aligned ciphertext.",
         InspectInput, crypto.openssl_inspect, "openssl aes salt salted cipher kdf header inspect",
@@ -166,6 +173,7 @@ OPS = [
     _op("verify.sha256", "Check a byte commitment", "Compare exact candidate bytes against a supplied SHA256 commitment.",
         VerifyInput, primitives.verify_sha256, "verify exact target commitment sha256 digest witness",
         "Digest equality under the provided commitment. Commitment provenance is not authenticated.", "65536 candidate bytes.",
+        example={"candidate_hex": "616263", "expected_sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"},
         match=bool, observed_sha256=str, expected_sha256=str, evidence_kind=str, scope=str),
     _op("evidence.padding_null", "Compute chance padding expectation", "Expected padding hits under a uniform wrong-key final-block model.",
         PaddingInput, primitives.padding_null, "padding false positive negative controls null expectation statistics pkcs7 chance",
@@ -183,6 +191,7 @@ OPS = [
         SolveInput, solve_tables, "constraint join table csp solve finite domain arc semijoin pruning factor",
         "Solutions of the declared table system only; COMPLETE empty output rejects that system, not the puzzle.",
         "Explicit node/result/propagation/output budgets and admission limits; PARTIAL never means unsatisfiable.",
+        example={"domains": {"a": ["0", "1"], "b": ["0", "1"]}, "constraints": [{"scope": ["a", "b"], "allowed": [["0", "1"], ["1", "0"]]}]},
         status=Literal["COMPLETE","PARTIAL"], complete=bool, solutions=list[dict[str,str]], nodes_visited=int,
         termination_reason=Literal["exhausted","solution_limit","node_limit","propagation_limit","output_limit"],
         propagation_checks=int, propagation_check_limit=int, output_bytes=int, output_byte_limit=int, exact_scope=str),
@@ -221,11 +230,28 @@ RENAMED_OPERATION_IDS = {
 }
 
 
+_STOPWORDS = frozenset({"a", "an", "and", "by", "in", "is", "of", "or", "the", "to", "with"})
+
+
+def _words(text: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", text.lower())) - _STOPWORDS
+
+
 def unknown_operation(operation_id) -> ValueError:
     renamed = RENAMED_OPERATION_IDS.get(operation_id) if type(operation_id) is str else None
     if renamed:
         return ValueError(f"unknown operation_id {operation_id!r}; renamed to {renamed!r} in 0.3.0")
-    return ValueError("unknown operation_id")
+    close = []
+    if type(operation_id) is str:
+        # A keyword hit on the name after the family catches synonyms (cipher.vigenere) that spelling misses.
+        # An empty word set would make find() return every operation, so it gives no hint.
+        name = " ".join(_words(operation_id.rpartition(".")[2].replace("_", " ")))
+        keyword = [hit["operation_id"] for hit in find(name, limit=1)] if name else []
+        close = (list(dict.fromkeys(keyword + difflib.get_close_matches(operation_id, REGISTRY, n=3, cutoff=0.5)))[:3]
+                 or [known for known in REGISTRY if known.startswith(operation_id.partition(".")[0] + ".")])
+    if close:
+        return ValueError(f"unknown operation_id {operation_id!r}; did you mean {', '.join(close)}? Run 'polya list'.")
+    return ValueError(f"unknown operation_id {operation_id!r}. Run 'polya list'.")
 
 
 def canonical_json(value) -> str:
@@ -233,17 +259,18 @@ def canonical_json(value) -> str:
 
 
 def find(query: str = "", *, operation_id: str | None = None, limit: int = 5):
-    if type(query) is not str or type(limit) is not int or not 1 <= limit <= 20:
-        raise ValueError("query must be text and limit an integer in [1,20]")
+    if type(query) is not str or type(limit) is not int or not 1 <= limit <= 100:
+        raise ValueError("query must be text and limit an integer in [1,100]")
     if operation_id is not None:
         if operation_id not in REGISTRY:
             raise unknown_operation(operation_id)
         return REGISTRY[operation_id].contract()
-    tokens = set(re.findall(r"[a-z0-9]+", query.lower()))
+    tokens = _words(query)
     ranked = []
     for op in OPS:
-        fields = (op.operation_id + " " + op.title + " " + op.terms).lower()
-        score = sum(1 for token in tokens if token in re.findall(r"[a-z0-9]+", fields))
+        named, terms = _words(op.operation_id + " " + op.title), _words(op.terms)
+        # A query word in the ID or title outranks one found only in the discovery terms.
+        score = sum(2 if token in named else 1 if token in terms else 0 for token in tokens)
         if not tokens or score:
             ranked.append((score, op))
     ranked.sort(key=lambda item: (-item[0], item[1].operation_id))
@@ -313,7 +340,11 @@ def prepare(operation_id: str, inputs: dict):
     if len(canonical_json(inputs)) > 1_000_000:
         raise ValueError("input JSON exceeds 1 MB prototype admission limit")
     op = REGISTRY[operation_id]
-    validated = op.request.model_validate(inputs).model_dump(mode="json")
+    try:
+        validated = op.request.model_validate(inputs).model_dump(mode="json")
+    except pydantic.ValidationError as exc:
+        raise ValidationError(f"invalid inputs for {operation_id}: " + "; ".join(
+            f"{'.'.join(map(str, error['loc'])) or 'inputs'}: {error['msg']}" for error in exc.errors())) from exc
     identity = {"operation_id": operation_id, "operation_version": op.version,
                 "implementation": implementation_fingerprint(), "inputs": validated,
                 "runtime_mode": execution_mode()}

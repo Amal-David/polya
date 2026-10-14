@@ -15,7 +15,7 @@ VERSIONS=('2025-06-18','2025-03-26','2024-11-05')
 TOOLS=[
     {'name':'puzzle.find','description':'Find operations, or inspect the exact contract for one operation before running it.',
      'inputSchema':{'type':'object','properties':{'query':{'type':'string'},'operation_id':{'type':'string'},
-                    'limit':{'type':'integer','minimum':1,'maximum':20}},'additionalProperties':False},
+                    'limit':{'type':'integer','minimum':1,'maximum':100}},'additionalProperties':False},
      'annotations':{'readOnlyHint':True,'destructiveHint':False,'openWorldHint':False}},
     {'name':'puzzle.run','description':'Run one bounded operation. Inspect its contract with puzzle.find first. '
                  'Results establish only their explicit scope; UNKNOWN and partial results never mean UNSAT.',

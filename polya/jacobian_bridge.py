@@ -388,7 +388,7 @@ def operations(make):
              separate_runtime_required=bool, scope=str),
         make("jacobian.find", "Discover Jacobian math operations", "Delegate mathematical search or exact inspection to Jacobian's own math.find tool.",
              FindInput, find_math,
-             "jacobian math find discover inspect determinant modular gcd number theory matrix graph polynomial combinatorics proof sat smt exact rational arithmetic algebra",
+             "jacobian math find discover inspect determinant modular gcd prime factor factorization number theory matrix graph polynomial combinatorics proof sat smt exact rational arithmetic algebra",
              "Preserves upstream mathematical contracts and errors; no puzzle interpretation verified.",
              "Explicit Jacobian installation; bounded subprocess startup/output, 1..120s deadline.", cacheable=False,
              status=_STATUS, data=dict|None, error=dict|None, upstream_version=str,

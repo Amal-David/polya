@@ -146,6 +146,7 @@ def operations(make):
              SCOPE + " Source offsets list contributing bits from most to least significant; no text decoding.",
              "0..65536 ASCII binary digits; fixed 8-bit groups; at most 8192 bytes, 16384 hex digits, "
              "65536 contributing offsets and 7 explicitly dropped tail offsets.",
+             example={"text": "0100100001101001"},
              hex=Annotated[str, Field(max_length=2 * MAX_PACKED_BYTES)],
              byte_length=Annotated[int, Field(ge=0, le=MAX_PACKED_BYTES)],
              source_offsets=Annotated[list[Annotated[list[bit_offset], Field(min_length=8, max_length=8)]],

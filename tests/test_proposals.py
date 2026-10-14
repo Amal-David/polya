@@ -133,7 +133,7 @@ def test_discovery_and_output_validation_reject_unknown_status():
 
 def test_cli_discovery_and_mcp_provenance():
     proc = subprocess.run(
-        [sys.executable, "-m", "polya", "inspect", "specialist.verify_proposal"],
+        [sys.executable, "-m", "polya", "inspect", "specialist.verify_proposal", "--schema"],
         capture_output=True, text=True, timeout=15,
     )
     assert proc.returncode == 0, proc.stderr
