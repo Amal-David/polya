@@ -13,6 +13,11 @@
   Symbolic deduction reuse, improved hypothesis comparison and learned mechanism
   discovery are deferred; no new open-puzzle solve or agent-speedup is claimed.
 
+- Preserve supplied checkpoint digests and unauthenticated source labels in
+  specialist-proposal results, constrain the advertised status values, and
+  document the unchanged exact UTF-8 digest representation. Result fields are
+  additive; the crypto-investigation implementation remains partially staged.
+
 ## 0.2.1 - Polya repository launch
 
 - Adopt Polya branding with `polya` and `polya-mcp` commands.
