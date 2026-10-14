@@ -1,0 +1,61 @@
+name: Jacobian upstream review
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: jacobian-upstream-review
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare upstream source pin
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          from pathlib import Path
+          pin=Path("integrations/jacobian-upstream.json")
+          previous=json.loads(pin.read_text())
+          request=urllib.request.Request(
+              "https://api.github.com/repos/morluto/jacobian/commits/main",
+              headers={"Accept":"application/vnd.github+json",
+                       "Authorization":"Bearer "+os.environ["GH_TOKEN"],
+                       "User-Agent":"polya-jacobian-sync"})
+          with urllib.request.urlopen(request,timeout=15) as handle:
+              current=json.load(handle)["sha"]
+          if len(current)!=40 or any(c not in '0123456789abcdef' for c in current):
+              raise RuntimeError("invalid upstream SHA")
+          with open(os.environ["GITHUB_OUTPUT"],"a") as out:
+              out.write("changed="+("true" if current!=previous["sha"] else "false")+"\n")
+              out.write("sha="+current+"\n")
+          if current!=previous["sha"]:
+              previous["sha"]=current
+              pin.write_text(json.dumps(previous,indent=2,sort_keys=True)+"\n")
+          PY
+      - name: Open review PR for updated source pin
+        if: steps.source.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="sync/jacobian-${UPSTREAM_SHA:0:12}"
+          if gh api "repos/$GITHUB_REPOSITORY/branches/$branch" >/dev/null 2>&1; then
+            echo "Review branch already exists; no automatic overwrite"
+            exit 0
+          fi
+          git switch -c "$branch"
+          git add integrations/jacobian-upstream.json
+          git commit -m "chore: review Jacobian upstream $UPSTREAM_SHA"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch"             --title "Review Jacobian upstream ${UPSTREAM_SHA:0:12}"             --body "Automated weekly source-pin proposal. **No upstream code vendored or installed.** Review upstream diff, Python 3.12 environment compatibility, MCP math.find/math.run contract, and focused integration smoke tests before merging. No auto-merge."
