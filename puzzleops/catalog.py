@@ -187,6 +187,10 @@ OPS = [
 ]
 from .extensions import extension_ops
 OPS.extend(extension_ops(_op))
+from .cryptic import operations as cryptic_ops
+from .mechanisms import operations as mechanism_ops
+OPS.extend(cryptic_ops(_op))
+OPS.extend(mechanism_ops(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 
 
@@ -278,4 +282,3 @@ def make_receipt(op, validated, identity, key, result):
 
 def run(operation_id: str, inputs: dict):
     return execute_prepared(*prepare(operation_id, inputs))
-
