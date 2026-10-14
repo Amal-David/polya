@@ -11,6 +11,7 @@ from pathlib import Path
 from polya import run
 
 DATA = Path(__file__).with_name('data')
+CASES = Path(__file__).parent / 'cases' / 'gsmg'
 
 
 def frontier_plan(png_base64: str, lock: dict) -> dict:
@@ -60,7 +61,7 @@ def main() -> dict:
             'matching_programs': [row['choices'] for row in result['matches']],
             'plan_id': result['plan_id'], 'kernel_calls': result['kernel_calls'],
             'complete': result['complete']})
-    control = json.loads((DATA/'gsmg-phase2-control.json').read_text())
+    control = json.loads((CASES/'gsmg-phase2-control.json').read_text())
     result = run('crypto.openssl_scan', {'candidates': [
         {'id': 'published-phase2-answer', 'value_hex': control['candidate_hex'], 'source': control['source']}],
         'locks': [{'id': 'historical-phase2', 'blob_hex': control['blob_hex'], 'digest': 'sha256',

@@ -18,7 +18,7 @@ full suite before reporting completion.
 
 ## Python 3.15
 
-Read [Python support](../docs/PYTHON-SUPPORT.md). Preserve 3.11 source parsing and
+Read [Python support](../docs/internals/python-support.md). Preserve 3.11 source parsing and
 feature-detect 3.15 builtins; keep aliases identical. Never change process-wide
 lazy-import, GIL or JIT policy. Publish native-library handles under the lock;
 never share mutable contexts, sessions or learner state across workers. Use

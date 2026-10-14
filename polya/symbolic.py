@@ -59,7 +59,7 @@ def capabilities():
         'reference':{'available':True,'version':'0.2','features':['bounded_exhaustive','independent_evaluator']},
         'aalpy':{'available':util.find_spec('aalpy') is not None,'version':version('aalpy'),'features':['optional_active_mealy_learning']},
         'mcp':{'available':True,'version':'2025-06-18','features':['bundled_stdio_agent_transport']}},
-        'scope':'Availability is not a validation certificate; see validation/RESULTS-0.2.md for actual test coverage.'}
+        'scope':'Availability is not a validation certificate; see docs/history/results-0.2.md for actual test coverage.'}
 
 
 def setup(model,assumptions,backend,timeout_ms,max_checks,max_assignments):

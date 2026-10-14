@@ -206,7 +206,7 @@ def test_raw_and_hex_hashed_passwords_are_distinct():
 def test_published_phase2_control_wrong_digest_and_known_password():
     import json
     from pathlib import Path
-    c = json.loads((Path(__file__).parents[1]/'examples/data/gsmg-phase2-control.json').read_text())
+    c = json.loads((Path(__file__).parents[1]/'examples/cases/gsmg/gsmg-phase2-control.json').read_text())
     args = {'candidates': [{'id': 'known', 'value_hex': c['candidate_hex'], 'source': c['source']}],
         'locks': [{'id': 'historical', 'blob_hex': c['blob_hex'], 'digest': 'sha256',
             'password_mode': 'sha256_hex', 'calibration': c,

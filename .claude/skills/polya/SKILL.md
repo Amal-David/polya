@@ -5,8 +5,8 @@ description: Use Polya for bounded puzzle experiments, explicit hypotheses, symb
 
 # Polya investigation skill
 
-Read [agent usage](../../../docs/AGENT-USAGE.md), [MCP setup](../../../docs/MCP.md),
-and [agent setup](../../../docs/AGENT-SETUP.md). This skill supplies instructions;
+Read [investigating](../../../docs/agents/investigating.md), [MCP](../../../docs/agents/mcp.md)
+and [agent setup](../../../docs/agents/setup.md). This skill supplies instructions;
 it does not install dependencies, register MCP, or grant external access.
 
 Inspect the real backend inventory. Discover with `puzzle.find`, inspect one
@@ -14,14 +14,16 @@ exact operation contract, then call `puzzle.run`. The CLI equivalents are:
 
 ```bash
 python -m polya run backends.inspect --json '{}'
+python -m polya list
 python -m polya find "hypothesis forced contradiction"
 python -m polya inspect symbolic.analyze
 ```
 
-For cryptographic puzzles, read [the crypto guide](../../../docs/CRYPTO-PUZZLES.md)
-and [artifact-to-target guide](../../../docs/CRYPTO-FRONTIER.md). Start at the actual
-unresolved step. Use extraction, classical-cipher search, and calibrated targets
-when appropriate; a fast formal solver does not discover the intended mechanism.
+All contracts are in the [operation reference](../../../docs/operations.md).
+For cryptographic puzzles, read [ciphers](../../../docs/guides/ciphers.md) and
+[plans](../../../docs/guides/plans.md). Start at the actual unresolved step. Use
+extraction, classical-cipher search and calibrated targets when appropriate; a fast
+formal solver does not discover the intended mechanism.
 
 ## Choose an experiment
 
@@ -53,6 +55,7 @@ experiments, retractions, remaining evidence gaps, and one high-value next test.
 Preserve source artifacts and receipts; do not expose private material or secrets.
 Local tools do not browse, transact, run untrusted code, or acquire observations
 that they merely propose. External actions need separate authorization and tools.
+
 ## Exact mathematics via Jacobian
 
 If a clue requires finite-field, integer/number-theoretic, graph, algebraic,
@@ -60,4 +63,4 @@ combinatorial, SAT/SMT or proof operations beyond Polya, first call
 `jacobian.inspect` to check availability, `jacobian.find` to match or inspect
 upstream `math.find`, then `jacobian.run` to execute `math.run`. This is a
 separate pinned runtime, never an implicit installation or proof of the
-clue interpretation. See [the integration guide](../../../docs/JACOBIAN.md).
+clue interpretation. See [Jacobian](../../../docs/guides/jacobian.md).

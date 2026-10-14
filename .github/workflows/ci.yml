@@ -30,6 +30,7 @@ jobs:
       - run: python -m pip install -e '.[test,z3,imaging]'
       - run: python -m pip check
       - run: python -m polya doctor
+      - run: python scripts/generate_operations_doc.py --check
       - run: python -m pytest -q -rs --junitxml=core-tests.xml
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

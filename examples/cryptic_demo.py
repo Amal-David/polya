@@ -1,6 +1,6 @@
 """Historical checkpoint replay and finite mechanism search, not new solves.
 
-Source transcriptions and provenance are recorded beside this script.
+Source transcriptions and provenance are recorded in cases/gsmg/cryptic-checkpoints.json.
 No website, wallet, network endpoint, or downloaded code is executed.
 """
 from __future__ import annotations
@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from polya import run
 
-DATA = Path(__file__).with_name('data') / 'cryptic-checkpoints.json'
+DATA = Path(__file__).parent / 'cases' / 'gsmg' / 'cryptic-checkpoints.json'
 
 
 def step(operation_id, inputs, *, input_field='text', output_field='text', rationale):
