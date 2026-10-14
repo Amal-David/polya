@@ -1,8 +1,8 @@
 import os
 import random
 import pytest
-from puzzleops.automata import distinguish
-from puzzleops.native_product import compare
+from polya.automata import distinguish
+from polya.native_product import compare
 
 
 def pair(seed):

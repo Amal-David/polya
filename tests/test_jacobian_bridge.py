@@ -199,7 +199,7 @@ def test_deadline_covers_large_request_to_initialized_nonreader(fake_backend, mo
 
 def test_request_writer_completes_partial_writes():
     from types import SimpleNamespace
-    from puzzleops.jacobian_bridge import _send
+    from polya.jacobian_bridge import _send
     received = bytearray()
 
     class ShortWrites:
@@ -220,7 +220,7 @@ def test_request_writer_completes_partial_writes():
 
 def test_cleanup_kills_before_closing_a_possibly_blocked_input():
     from unittest.mock import Mock
-    from puzzleops import jacobian_bridge
+    from polya import jacobian_bridge
     events = []
     process = Mock(pid=12345)
     process.poll.return_value = None
@@ -235,7 +235,7 @@ def test_cleanup_kills_before_closing_a_possibly_blocked_input():
 def test_request_writer_rejects_stalled_or_closed_pipe(failure):
     from types import SimpleNamespace
     from unittest.mock import Mock
-    from puzzleops.jacobian_bridge import _send, _BridgeFailure
+    from polya.jacobian_bridge import _send, _BridgeFailure
     stream = Mock()
     if isinstance(failure, Exception):
         stream.write.side_effect = failure
@@ -288,7 +288,7 @@ def test_reader_can_cancel_while_notification_queue_is_full():
     import io
     import queue
     import threading
-    from puzzleops.jacobian_bridge import _read_messages
+    from polya.jacobian_bridge import _read_messages
     line = json.dumps({'jsonrpc': '2.0', 'method': 'notifications/progress'}).encode() + b'\n'
     inbox = queue.Queue(maxsize=32)
     stopped = threading.Event()
@@ -384,7 +384,7 @@ def test_cleanup_terminates_descendants_even_after_leader_exits(fake_backend, mo
 @pytest.mark.parametrize('field', ['version', 'release_source_sha', 'wheel_sha256',
                                    'upstream', 'requires_python', 'execution'])
 def test_runtime_pin_promotions_change_receipt_identity(monkeypatch, field):
-    from puzzleops import catalog, jacobian_bridge
+    from polya import catalog, jacobian_bridge
     monkeypatch.setenv('POLYA_JACOBIAN_MCP', '/path/that/is/not/here')
     before = run('jacobian.inspect', {})['receipt']
     promoted = pin()
@@ -399,7 +399,7 @@ def test_runtime_pin_promotions_change_receipt_identity(monkeypatch, field):
 
 
 def test_source_watch_metadata_does_not_promote_runtime_identity(monkeypatch):
-    from puzzleops import catalog, jacobian_bridge
+    from polya import catalog, jacobian_bridge
     before = run('jacobian.inspect', {})['receipt']
     watched = pin()
     for field in ('upstream_main_sha', 'latest_available_version',
@@ -413,7 +413,7 @@ def test_source_watch_metadata_does_not_promote_runtime_identity(monkeypatch):
 
 
 def test_pin_returns_owned_copy_and_does_not_reload_disk(monkeypatch):
-    from puzzleops import jacobian_bridge
+    from polya import jacobian_bridge
     original = pin()
     changed = pin()
     changed['version'] = 'unreviewed'
@@ -422,7 +422,7 @@ def test_pin_returns_owned_copy_and_does_not_reload_disk(monkeypatch):
 
 
 def test_failed_windows_job_setup_never_starts_backend(monkeypatch):
-    from puzzleops import _jacobian_worker
+    from polya import _jacobian_worker
     with patch.object(_jacobian_worker.os, 'name', 'nt'), \
             patch.object(_jacobian_worker.sys, 'argv', ['supervisor', 'operator-backend']), \
             patch.object(_jacobian_worker, '_join_job', side_effect=OSError('job setup denied')), \
@@ -453,13 +453,13 @@ def test_non_json_and_oversized_payloads_are_rejected_without_leaking_secrets(fa
 
 def test_runtime_pin_revisions_affect_provenance_not_source_observations():
     from polya.jacobian_bridge import pin
-    from puzzleops.catalog import _execution_pin_fields, _compute_implementation_fingerprint
+    from polya.catalog import _execution_pin_fields, _compute_implementation_fingerprint
     base=pin()
     assert _execution_pin_fields(base)==_execution_pin_fields({**base,"upstream_main_sha":"a"*40})
     assert _execution_pin_fields(base)!=_execution_pin_fields({**base,"version":"999.0"})
     from unittest.mock import patch
     before=_compute_implementation_fingerprint()
-    with patch('puzzleops.catalog._JACOBIAN_PIN_RUNTIME_SNAPSHOT', b'different-reviewed-upstream-runtime'):
+    with patch('polya.catalog._JACOBIAN_PIN_RUNTIME_SNAPSHOT', b'different-reviewed-upstream-runtime'):
         after=_compute_implementation_fingerprint()
     assert before!=after
 
@@ -474,7 +474,7 @@ def test_delegated_backend_is_its_own_posix_process_group(fake_backend, monkeypa
     def record(pgid,sig):
         seen.append((pgid,sig))
         return original(pgid,sig)
-    with patch('puzzleops.jacobian_bridge.os.killpg', side_effect=record):
+    with patch('polya.jacobian_bridge.os.killpg', side_effect=record):
         r=find_math(query='extended gcd')
     assert r['status']=='OK'
     assert seen and all(sig==signal.SIGKILL for _,sig in seen)

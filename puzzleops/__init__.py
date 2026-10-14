@@ -1,14 +1,34 @@
-"""PuzzleOps: deterministic puzzle operations; the caller owns strategy."""
+"""puzzleops is a deprecated alias for polya; import polya instead.
 
-__version__ = "0.2.2"
+``import puzzleops.X`` returns the ``polya.X`` module object itself.
+"""
+import sys
+from importlib import import_module
+from importlib.machinery import ModuleSpec
+
+from polya import __version__, find, run
 
 
-def find(query: str = "", *, operation_id: str | None = None, limit: int = 5):
-    from .catalog import find as _find
-    return _find(query, operation_id=operation_id, limit=limit)
+class _AliasLoader:
+    def __init__(self, module):
+        self.module = module
+        self.spec = module.__spec__
+
+    def create_module(self, spec):
+        return self.module
+
+    def exec_module(self, module):
+        # The import system overwrites __spec__ with the alias spec; keep polya's own.
+        module.__spec__ = self.spec
 
 
-def run(operation_id: str, inputs: dict):
-    from .catalog import run as _run
-    return _run(operation_id, inputs)
+class _AliasFinder:
+    @staticmethod
+    def find_spec(fullname, path=None, target=None):
+        if not fullname.startswith("puzzleops."):
+            return None
+        module = import_module("polya" + fullname[len("puzzleops"):])
+        return ModuleSpec(fullname, _AliasLoader(module))
 
+
+sys.meta_path.append(_AliasFinder())

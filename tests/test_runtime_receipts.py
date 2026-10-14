@@ -1,8 +1,8 @@
 """Lazy-backend mode changes must not leave stale provenance or reusable cache."""
 from dataclasses import replace
 from unittest import mock
-from puzzleops import catalog
-from puzzleops.session import Session
+from polya import catalog
+from polya.session import Session
 
 
 def test_receipt_records_post_kernel_mode_and_does_not_cache_transition():

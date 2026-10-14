@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from puzzleops.session import Session
+from polya.session import Session
 
 
 class SessionTests(unittest.TestCase):
@@ -24,7 +24,7 @@ class SessionTests(unittest.TestCase):
     def test_runtime_change_invalidates_cache(self):
         with Session(":memory:") as session:
             first = session.run("text.profile", {"text": "abc"})
-            with mock.patch("puzzleops.catalog.implementation_fingerprint", return_value="different-code-and-runtime"):
+            with mock.patch("polya.catalog.implementation_fingerprint", return_value="different-code-and-runtime"):
                 second = session.run("text.profile", {"text": "abc"})
             self.assertFalse(second["cache_hit"])
             self.assertNotEqual(first["receipt"]["experiment_key"], second["receipt"]["experiment_key"])

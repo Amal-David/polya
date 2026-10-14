@@ -4,7 +4,7 @@ import random
 import unittest
 from unittest.mock import patch
 
-from puzzleops.constraints import plan_factors, solve_tables
+from polya.constraints import plan_factors, solve_tables
 
 
 def exhaustive_oracle(domains, constraints):
@@ -113,7 +113,7 @@ class ConstraintTests(unittest.TestCase):
     def test_propagation_limit_is_partial_and_never_false_unsat(self):
         domains = {"a": ["0", "1"]}
         constraints = [{"scope": ["a"], "allowed": [["0"], ["1"]]}]
-        with patch("puzzleops.constraints._PROPAGATION_LIMIT", 1):
+        with patch("polya.constraints._PROPAGATION_LIMIT", 1):
             result = solve_tables(domains, constraints)
         self.assertEqual(result["termination_reason"], "propagation_limit")
         self.assertFalse(result["complete"])
@@ -121,7 +121,7 @@ class ConstraintTests(unittest.TestCase):
         self.assertLessEqual(result["propagation_checks"], result["propagation_check_limit"])
 
     def test_output_limit_preserves_admitted_solutions_and_counts_ascii_json(self):
-        with patch("puzzleops.constraints._OUTPUT_BYTE_LIMIT", 12):
+        with patch("polya.constraints._OUTPUT_BYTE_LIMIT", 12):
             result = solve_tables({"x": ["a", "b"]}, [])
         self.assertEqual(result["termination_reason"], "output_limit")
         self.assertFalse(result["complete"])
@@ -131,7 +131,7 @@ class ConstraintTests(unittest.TestCase):
         unicode_result = solve_tables({"x": ["é", "🙂"]}, [])
         encoded = json.dumps(unicode_result["solutions"], ensure_ascii=True, separators=(",", ":")).encode("ascii")
         self.assertEqual(unicode_result["output_bytes"], len(encoded))
-        with patch("puzzleops.constraints._OUTPUT_BYTE_LIMIT", 11):
+        with patch("polya.constraints._OUTPUT_BYTE_LIMIT", 11):
             exact = solve_tables({"x": ["a"]}, [])
         self.assertTrue(exact["complete"])
         self.assertEqual(exact["output_bytes"], exact["output_byte_limit"])

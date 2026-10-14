@@ -4,7 +4,7 @@ import itertools
 from polya import run
 from polya.equality_patterns import check
 from polya.plans import scan
-from puzzleops.catalog import canonical_json
+from polya.catalog import canonical_json
 
 
 def test_complete_relation_against_independent_pairwise_oracle():

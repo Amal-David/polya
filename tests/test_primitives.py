@@ -1,17 +1,61 @@
 import itertools
 import unittest
 
-from puzzleops import find, run
-from puzzleops.primitives import candidate_expand
+from polya import find, run
+from polya.catalog import REGISTRY, RENAMED_OPERATION_IDS
+from polya.plans import prepare_plan
+from polya.primitives import candidate_expand
 
 
 class PrimitiveTests(unittest.TestCase):
     def test_discovery_and_exact_contract(self):
         found = find("independent factor graph budget")
         self.assertEqual(found[0]["operation_id"], "constraints.plan")
-        contract = find(operation_id="crypto.openssl.decrypt")
+        contract = find(operation_id="crypto.openssl_decrypt")
         self.assertIn("digest", contract["input_schema"]["required"])
         self.assertEqual(find("zxqv_unrecognizable"), [])
+
+    def test_operation_ids_are_family_dot_snake_case(self):
+        for operation_id in REGISTRY:
+            self.assertRegex(operation_id, r"^[a-z][a-z0-9]*\.[a-z][a-z0-9_]*$")
+        self.assertEqual(len(REGISTRY), 43)
+
+    def test_renamed_operation_ids_execute_as_their_canonical_operation(self):
+        for old, new in RENAMED_OPERATION_IDS.items():
+            self.assertEqual(find(operation_id=old)["operation_id"], new)
+
+        def recipe(symbol_map, radix):
+            return {"source": "ab", "checkpoint": {"kind": "prefix", "value": "A", "source": "test commitment"},
+                    "stages": [[{"operation_id": symbol_map, "input_field": "text", "output_field": "text",
+                                 "inputs": {"mapping": {"a": "4", "b": "1"}}, "rationale": "explicit mapping"}],
+                               [{"operation_id": radix, "input_field": "text", "output_field": "text",
+                                 "inputs": {"radix": 16}, "rationale": "explicit radix"}]]}
+        blob = (b"Salted__" + bytes(range(8)) + bytes(16)).hex()
+        cases = [("encoding.radix_bytes", "bytes.from_radix", {"text": "48656c6c6f", "radix": 16}, None),
+                 ("crypto.openssl.inspect", "crypto.openssl_inspect", {"blob_hex": blob}, None),
+                 ("mechanism.scan", "mechanism.recipe_scan",
+                  recipe("encoding.symbol_map", "encoding.radix_bytes"), recipe("text.symbol_map", "bytes.from_radix"))]
+        for old, new, old_inputs, new_inputs in cases:
+            with self.subTest(old=old):
+                via_old, via_new = run(old, old_inputs), run(new, new_inputs or old_inputs)
+                self.assertEqual(via_old["operation_id"], new)
+                self.assertEqual(via_old["result"], via_new["result"])
+                self.assertEqual(via_old["receipt"]["experiment_key"], via_new["receipt"]["experiment_key"])
+        self.assertTrue(via_old["result"]["matches"])
+
+        def plan(to_bits):
+            return {"sources": [{"id": "input", "kind": "symbols", "value": "\u26ab\u26aa", "source": "fixture"}],
+                    "nodes": [{"id": "bits", "alternatives": [
+                        {"operation_id": to_bits, "bindings": {"text": {"node": "input", "field": "value"}},
+                         "inputs": {"zero": "\u26ab", "one": "\u26aa"}, "rationale": "explicit symbols"}]},
+                              {"id": "packed", "alternatives": [
+                        {"operation_id": "bits.pack", "bindings": {"text": {"node": "bits", "field": "text"}},
+                         "inputs": {"tail": "drop"}, "rationale": "explicit packing"}]}],
+                    "candidate": {"node": "packed", "field": "hex"},
+                    "target": {"kind": "direct", "target": {"kind": "sha256", "value": "0" * 64, "source": "fixture"}}}
+        old_plan, old_plan_id, *_ = prepare_plan(plan("symbols.to_bits"))
+        self.assertEqual(old_plan.nodes[0].alternatives[0].operation_id, "bits.from_symbols")
+        self.assertEqual(old_plan_id, prepare_plan(plan("bits.from_symbols"))[1])
 
     def test_strict_decoding(self):
         self.assertEqual(run("bytes.decode", {"encoding": "base64", "value": "AAH/"})["result"]["hex"], "0001ff")

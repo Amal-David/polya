@@ -1,7 +1,7 @@
 """Exercise real Z3 and enforce context-time option configuration."""
 import pytest
-from puzzleops import run
-from puzzleops import native_z3
+from polya import run
+from polya import native_z3
 
 
 def require_z3():

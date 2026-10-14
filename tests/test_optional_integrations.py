@@ -2,10 +2,10 @@
 import importlib.util
 import json
 import pytest
-from puzzleops.symbolic import solve,analyze
-from puzzleops.model import op
-from puzzleops.automata import from_runs,distinguish
-from puzzleops.learning import learn_local
+from polya.symbolic import solve,analyze
+from polya.model import op
+from polya.automata import from_runs,distinguish
+from polya.learning import learn_local
 
 HAS_CP=importlib.util.find_spec('ortools') is not None
 HAS_AALPY=importlib.util.find_spec('aalpy') is not None

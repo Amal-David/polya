@@ -14,7 +14,7 @@ import re
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "puzzleops" / "jacobian_pin.json"
+MANIFEST = ROOT / "polya" / "jacobian_pin.json"
 GITHUB = "https://api.github.com/repos/morluto/jacobian/git/ref/heads/main"
 PYPI = "https://pypi.org/pypi/jacobian/json"
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")

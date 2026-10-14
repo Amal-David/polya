@@ -3,7 +3,7 @@ import hashlib
 import itertools
 import random
 
-from puzzleops.plans import scan
+from polya.plans import scan
 
 
 def test_512_grid_invert_pack_recipes():

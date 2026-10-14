@@ -1,0 +1,257 @@
+name: CI
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  core:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        include:
+          - os: windows-latest
+            python: '3.15'
+          - os: macos-latest
+            python: '3.15'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,z3,imaging]'
+      - run: python -m pip check
+      - run: python -m polya doctor
+      - run: python scripts/generate_operations_doc.py --check
+      - run: python -m pytest -q -rs --junitxml=core-tests.xml
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: core-${{ matrix.os }}-${{ matrix.python }}
+          path: core-tests.xml
+  # OR-Tools has no compatible 3.15 distribution at the 2026-10-13 check.
+  # Full CP-SAT tests remain mandatory on the supported 3.12/3.14 stack.
+  optional-integrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.14']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,solvers,learning,imaging]'
+      - run: python -m pip check
+      - name: Require actual optional backends
+        run: python -c 'import ortools, aalpy; from polya.native_z3 import native_version; assert native_version()'
+      - run: python -m pytest -q -rs --junitxml=full-tests.xml
+      - run: python -m examples.structured_demo
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: optional-${{ matrix.python }}
+          path: full-tests.xml
+  learning-315:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.15'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,z3,learning,imaging]'
+      - run: python -m pip check
+      - name: Require AALpy and native Z3 on the actual 3.15 interpreter
+        run: python -c 'import sys,aalpy; from polya.native_z3 import native_version; assert sys.version_info[:2] == (3,15); assert native_version()'
+      - run: python -m pytest -q -rs --junitxml=learning-tests.xml
+      - run: python -m examples.structured_demo
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: learning-3.15
+          path: learning-tests.xml
+  free-threaded:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.15t'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,z3,imaging]'
+      - run: python -m pip check
+      - name: Verify the real build without forcing an unsafe extension override
+        run: python -c 'import sys,sysconfig; assert sys.version_info[:2] == (3,15); assert sysconfig.get_config_var("Py_GIL_DISABLED") == 1; assert not sys._is_gil_enabled()'
+      - run: python -m pytest -q -rs --junitxml=threaded-tests.xml
+      - run: python scripts/benchmark_runtime.py --repeats 3 --words 2000 --threads 4 --output threaded-benchmark.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: free-threaded-3.15
+          path: |
+            threaded-tests.xml
+            threaded-benchmark.json
+  installed-wheel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.15'
+      - run: python -m pip install --upgrade pip build
+      - run: python -m build
+      - run: python -m pip install '.[test,z3,imaging]'
+      - run: python -m pip install --force-reinstall --no-deps dist/*.whl
+      - name: Exercise the installed artifact, not the source checkout
+        run: |
+          python -I -m polya doctor
+          python -I -c 'from polya import run; r=run("symbolic.analyze",{"model":{"variables":{"x":{"values":[4]}}},"backend":"z3"})["result"]; assert r["forced_values"]=={"x":4}'
+      - run: python scripts/benchmark_runtime.py --repeats 3 --words 2000 --output runtime-benchmark.json
+      - run: python scripts/benchmark_runtime.py --repeats 1 --words 200 --profile runtime.prof --output instrumented.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-315-wheel-and-benchmark
+          path: |
+            dist/*.whl
+            runtime-benchmark.json
+            runtime.prof
+  unsupported-z3-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[test]' 'z3-solver==4.8.12.0'
+      - name: Require the actual unsupported version
+        run: python -c 'from importlib.metadata import version; assert version("z3-solver") == "4.8.12.0"'
+      - name: Verify explicit rejection, not unsupported solving
+        run: python -m pytest tests/test_legacy_z3_boundary.py -q -rs
+  native-kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.15', '3.15t']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,z3]'
+      - name: Compile and test the actual Rust kernel
+        run: |
+          rustc --version
+          rustc --edition=2021 --test native/product.rs -o /tmp/polya-rust-tests
+          /tmp/polya-rust-tests
+          rustc --edition=2021 -O --crate-type cdylib -C panic=abort -C force-frame-pointers=yes native/product.rs -o /tmp/libpolya_product.so
+      - name: Differential tests with native execution required
+        env:
+          POLYA_RUST_LIB: /tmp/libpolya_product.so
+        run: python -m pytest tests/test_native_product.py tests/test_prepared.py -q
+      - name: Equal-work performance ablations
+        run: python scripts/benchmark_v03.py --rust-lib /tmp/libpolya_product.so --output performance.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-performance-${{ matrix.python }}
+          path: performance.json
+  portable-workers:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.12', '3.15']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test]'
+      - run: python -m pytest tests/test_isolation.py tests/test_ledger.py tests/test_evaluation.py -q -rs
+  crypto-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e '.[test,imaging]' 'z3-solver>=4.13,<5'
+      - name: Require real image decoder and independent crypto producer
+        run: |
+          python -c "from PIL import Image; import shutil; assert shutil.which('openssl')"
+          openssl version
+      - run: python -m pytest tests/test_crypto_targets.py tests/test_artifact_png.py -q -rs --junitxml=crypto-tests.xml
+      - run: python -m examples.crypto_frontier_demo > crypto-readiness.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: crypto-readiness
+          path: |
+            crypto-readiness.json
+            crypto-tests.xml
+          if-no-files-found: error
+  jacobian-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.15'
+      - name: Install Polya and its own backend dependencies
+        run: python -m pip install -e '.[test,z3]'
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Install reviewed Jacobian release under separate Python 3.12
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv python install 3.12
+          uv venv --python 3.12 "$RUNNER_TEMP/jacobian-env"
+          VERSION=$(python -c 'from polya.jacobian_bridge import pin; print(pin()["version"])')
+          uv pip install --python "$RUNNER_TEMP/jacobian-env/bin/python" "jacobian==$VERSION"
+          "$RUNNER_TEMP/jacobian-env/bin/jacobian-mcp" --version
+          echo "POLYA_JACOBIAN_MCP=$RUNNER_TEMP/jacobian-env/bin/jacobian-mcp" >> "$GITHUB_ENV"
+      - name: Verify real math.find and math.run from Python 3.15 Polya
+        shell: bash
+        run: |
+          python -m pytest -q tests/test_jacobian_bridge.py tests/test_jacobian_live.py
+          python -m polya run jacobian.find --json '{"query":"exact extended gcd for two integers","limit":3}'

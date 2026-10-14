@@ -1,6 +1,59 @@
 # Changelog
 
-## Unreleased after 0.2.2
+## 0.3.0 - 14 October 2026
+
+Usability release. The engine is unchanged; the package, CLI, operation names
+and documentation are reorganized so a first-time user or agent can find and
+run an operation without reading the source.
+
+### Breaking
+
+- The implementation lives in the `polya` package. `puzzleops` is a deprecated
+  alias: `import puzzleops.<module>` returns the matching `polya` module. The
+  per-module shim files and the `puzzleops`/`puzzleops-mcp` console scripts
+  are gone; use `polya` and `polya-mcp`.
+- `polya inspect` prints a compact summary by default; `--schema` restores the
+  full JSON-schema contract.
+- GSMG replay fixtures move to `examples/cases/gsmg/`.
+
+### Renamed operations
+
+- Seven operation IDs are renamed so every ID is `family.operation`:
+  `crypto.bip39.seed` -> `crypto.bip39_seed`, `crypto.openssl.decrypt` ->
+  `crypto.openssl_decrypt`, `crypto.openssl.inspect` -> `crypto.openssl_inspect`,
+  `symbols.to_bits` -> `bits.from_symbols`, `encoding.radix_bytes` ->
+  `bytes.from_radix`, `encoding.symbol_map` -> `text.symbol_map`,
+  `mechanism.scan` -> `mechanism.recipe_scan`. The old IDs still execute,
+  including as recipe and plan steps, and resolve to the new ID: results and
+  receipts report the new ID, so an old-ID call has the same `experiment_key`
+  as the new-ID call.
+
+### CLI and Python
+
+- `polya list [--family NAME] [--json]` and `polya.list_operations()`.
+- `polya inspect ID --example` prints example inputs; 16 operations carry an
+  example that is validated and run by the test suite and exposed through
+  `puzzle.find`.
+- `polya run --result-only` prints the result without the receipt.
+- Help text on every command and flag; bare `polya` prints help.
+- Unknown IDs suggest close matches; validation errors read
+  `invalid inputs for <id>: <field>: <problem>` instead of raw Pydantic text.
+- Discovery weights ID and title matches above term matches, drops stopwords,
+  accepts `--limit` up to 100, and knows synonyms such as caesar, rot13, lsb,
+  sudoku and prime.
+
+### Repository
+
+- Docs reorganized into getting-started, a generated operation reference
+  (`scripts/generate_operations_doc.py --check` runs in CI), guides, agents,
+  internals and history. One install matrix; one scope section per document.
+- Two identical host skill copies (`.claude/skills`, `.agents/skills`) replace
+  the three-copy sync script.
+- Five per-push workflows fold into `ci.yml`; every action is pinned to a
+  commit SHA. `SOURCE-MANIFEST.json`, `.github/repository.json` and
+  `scripts/configure-repository.sh` are removed.
+
+### Carried over from the unreleased 0.2.2 work
 
 - Add `pattern.equality_check` and typed-plan `equality_pattern` targets: compare
   complete output equality partitions under one shared bijection, with explicit

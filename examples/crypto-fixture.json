@@ -6,7 +6,7 @@
   "decoy": {
     "blob_hex": "53616c7465645f5f8899aabbccddeeffb4e82559804964bbc8701fc4def0ba893b088fd31f7cef5e8cd5c31a682e51d9"
   },
-  "fixture_kind": "synthetic; produced by OpenSSL CLI, not puzzleops encryption",
+  "fixture_kind": "synthetic; produced by OpenSSL CLI, not polya encryption",
   "producer_version": "OpenSSL 3.0.13 30 Jan 2024 (Library: OpenSSL 3.0.13 30 Jan 2024)",
   "known_passphrase": "north-signal",
   "producer_digest": "sha256",

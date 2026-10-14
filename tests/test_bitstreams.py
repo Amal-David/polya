@@ -1,5 +1,4 @@
 """Independent byte fixtures, strict admission, and provenance for bitstreams."""
-import importlib
 from itertools import product
 
 import pytest
@@ -10,10 +9,6 @@ from polya.bitstreams import (MAX_BITS, MAX_SLICE_BYTES, InvertSpec, PackSpec,
                               pack_bits, slice_bytes, symbols_to_bits)
 from polya.catalog import _op, canonical_json
 from polya.cryptic import radix_bytes
-
-
-def test_module_is_shared():
-    assert importlib.import_module("polya.bitstreams") is importlib.import_module("puzzleops.bitstreams")
 
 
 @pytest.mark.parametrize("width", range(9))
@@ -216,13 +211,13 @@ def test_request_models_forbid_extra_fields_and_require_explicit_selection():
 
 def test_declared_contract_limits_and_strict_output_models():
     contracts = {operation.operation_id: operation for operation in operations(_op)}
-    assert set(contracts) == {"bits.invert", "bits.pack", "symbols.to_bits", "bytes.slice"}
+    assert set(contracts) == {"bits.invert", "bits.pack", "bits.from_symbols", "bytes.slice"}
     for operation in contracts.values():
         contract = operation.contract()
         assert contract["input_schema"]["additionalProperties"] is False
         assert contract["output_schema"]["additionalProperties"] is False
         assert "65536" in contract["limits"] or "32768" in contract["limits"]
-    for name in ("bits.invert", "bits.pack", "symbols.to_bits"):
+    for name in ("bits.invert", "bits.pack", "bits.from_symbols"):
         schema = contracts[name].contract()["input_schema"]
         assert schema["properties"]["text"]["maxLength"] == MAX_BITS
     packed = contracts["bits.pack"]
@@ -239,7 +234,7 @@ def test_declared_contract_limits_and_strict_output_models():
 @pytest.mark.parametrize("operation_id,payload,expected", [
     ("bits.invert", {"text": "001", "invert": True}, "110"),
     ("bits.pack", {"text": "0000000011111111"}, "00ff"),
-    ("symbols.to_bits", {"text": "aabba", "zero": "a", "one": "b"}, "00110"),
+    ("bits.from_symbols", {"text": "aabba", "zero": "a", "one": "b"}, "00110"),
     ("bytes.slice", {"value_hex": "00ff80", "start": 1, "stop": 3}, "ff80"),
 ])
 def test_public_dispatch_discovery_and_receipts(operation_id, payload, expected):
