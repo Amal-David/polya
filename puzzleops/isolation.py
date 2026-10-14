@@ -40,11 +40,21 @@ class ExecutionError(RuntimeError):
 
 
 def _kill(process):
+    if process.poll() is not None:
+        return
     try:
         if os.name == 'posix':
             os.killpg(process.pid, signal.SIGKILL)
-        elif process.poll() is None:
-            process.kill()
+            return
+    except ProcessLookupError:
+        # The child may have exited while the supervisor was deciding to kill.
+        return
+    except PermissionError:
+        # macOS hardened runners can deny killpg even when killing the direct
+        # child is permitted. Fall back to the child PID and still reap it.
+        pass
+    try:
+        process.kill()
     except ProcessLookupError:
         pass
 

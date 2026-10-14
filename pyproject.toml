@@ -48,3 +48,6 @@ puzzleops-mcp = "puzzleops.mcp_server:main"
 
 [tool.setuptools.packages.find]
 include = ["polya*", "puzzleops*"]
+
+[tool.setuptools.package-data]
+puzzleops = ["jacobian_pin.json"]

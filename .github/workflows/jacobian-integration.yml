@@ -1,0 +1,35 @@
+name: Jacobian isolated integration
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  jacobian-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+      - name: Install Polya and its own backend dependencies
+        run: python -m pip install -e '.[test,z3]'
+      - uses: astral-sh/setup-uv@v10.3.0
+      - name: Install reviewed Jacobian release under separate Python 3.12
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv python install 3.12
+          uv venv --python 3.12 "$RUNNER_TEMP/jacobian-env"
+          VERSION=$(python -c 'from puzzleops.jacobian_bridge import pin; print(pin()["version"])')
+          uv pip install --python "$RUNNER_TEMP/jacobian-env/bin/python" "jacobian==$VERSION"
+          "$RUNNER_TEMP/jacobian-env/bin/jacobian-mcp" --version
+          echo "POLYA_JACOBIAN_MCP=$RUNNER_TEMP/jacobian-env/bin/jacobian-mcp" >> "$GITHUB_ENV"
+      - name: Verify real math.find and math.run from Python 3.15 Polya
+        shell: bash
+        run: |
+          python -m pytest -q tests/test_jacobian_bridge.py tests/test_jacobian_live.py
+          python -m polya run jacobian.find --json '{"query":"exact extended gcd for two integers","limit":3}'
