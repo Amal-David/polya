@@ -132,9 +132,7 @@ def main(argv=None):
             result = find(operation_id=args.operation_id)
             if args.example:
                 if result["example"] is None:
-                    print(f"{args.operation_id} has no example; run 'polya inspect {args.operation_id}' to see its inputs.",
-                          file=sys.stderr)
-                    return 1
+                    raise ValueError(f"{args.operation_id} has no example; run 'polya inspect {args.operation_id}' to see its inputs.")
                 result = result["example"]
             elif not args.schema:
                 result = _compact(result)

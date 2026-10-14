@@ -1,6 +1,6 @@
 """Polya: deterministic puzzle operations; the caller owns strategy."""
 
-__version__ = "0.2.2"
+__version__ = "0.3.0"
 
 
 def find(query: str = "", *, operation_id: str | None = None, limit: int = 5):
@@ -9,8 +9,8 @@ def find(query: str = "", *, operation_id: str | None = None, limit: int = 5):
 
 
 def list_operations():
-    from .catalog import OPS, find as _find
-    return _find(limit=len(OPS))
+    from .catalog import list_operations as _list_operations
+    return _list_operations()
 
 
 def run(operation_id: str, inputs: dict):

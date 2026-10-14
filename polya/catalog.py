@@ -274,12 +274,19 @@ def find(query: str = "", *, operation_id: str | None = None, limit: int = 5):
         if not tokens or score:
             ranked.append((score, op))
     ranked.sort(key=lambda item: (-item[0], item[1].operation_id))
-    return [{"operation_id": op.operation_id, "title": op.title, "description": op.description,
-             "postcondition": op.postcondition} for _, op in ranked[:limit]]
+    return [_row(op) for _, op in ranked[:limit]]
+
+
+def list_operations():
+    return [_row(REGISTRY[operation_id]) for operation_id in sorted(REGISTRY)]
+
+
+def _row(op):
+    return {"operation_id": op.operation_id, "title": op.title, "description": op.description,
+            "postcondition": op.postcondition}
 
 
 def _backend_versions():
-    from importlib import metadata
     from .native_z3 import native_version
     versions = {"native_z3": native_version()}
     for name in ("ortools", "aalpy", "numpy", "protobuf", "Pillow"):

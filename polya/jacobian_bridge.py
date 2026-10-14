@@ -23,6 +23,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from . import __version__
 from .automata import StrictModel
 
 _MAX_LINE = 1_100_000
@@ -262,7 +263,7 @@ def _bridge(tool: str, arguments: dict, timeout_ms: int) -> dict:
         reader.start()
         _send(proc, {"jsonrpc":"2.0", "id":1, "method":"initialize",
                      "params":{"protocolVersion":"2025-06-18", "capabilities":{},
-                               "clientInfo":{"name":"polya", "version":"0.2.2"}}}, deadline, writers)
+                               "clientInfo":{"name":"polya", "version":__version__}}}, deadline, writers)
         initialized = _receive(inbox, 1, deadline)
         info = initialized.get("serverInfo")
         if not isinstance(info, dict) or info.get("name") != "jacobian":

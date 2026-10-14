@@ -16,7 +16,7 @@ Postcondition: Exact supplied PNG sample plane, not automatic steganography dete
 
 Limits:
 
-- 393216 encoded-source bytes, at most65536 decoded pixels
+- 393216 encoded-source bytes, at most 65536 decoded pixels
 - 8-bit single-frame PNG only
 - Pillow extra.
 

@@ -1,6 +1,6 @@
 # Python support
 
-Polya 0.2.2 targets Python 3.15 (released October 9, 2026) and keeps source
+Polya 0.3.0 targets Python 3.15 (released October 9, 2026) and keeps source
 compatibility with 3.11 to 3.14. `.python-version` selects 3.15 for development.
 CI on the exact commit, not the version classifiers, is the support record. The
 free-threaded build is tested separately.

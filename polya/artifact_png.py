@@ -73,6 +73,6 @@ def operations(make):
         'Preserve original image hash and pixel coordinates while extracting a selected native channel/bit.',
         PngInput, png_bitplane, 'png image pixel bits steganography lsb bitplane extraction channel gsmg',
         'Exact supplied PNG sample plane, not automatic steganography detection or a solution.',
-        '393216 encoded-source bytes, at most65536 decoded pixels; 8-bit single-frame PNG only; Pillow extra.',
+        '393216 encoded-source bytes, at most 65536 decoded pixels; 8-bit single-frame PNG only; Pillow extra.',
         text=str, width=int, height=int, mode=str, channel=str, bit=int, source_sha256=str,
         samples_sha256=str, coordinates=str, scope=str)]

@@ -27,11 +27,7 @@ def type_name(schema: dict) -> str:
     if "const" in schema:
         return f"`{json.dumps(schema['const'], ensure_ascii=False)}`"
     kind = schema.get("type")
-    if isinstance(kind, list):
-        return " or ".join(kind)
     if kind == "array":
-        if "prefixItems" in schema:
-            return "tuple of " + ", ".join(type_name(item) for item in schema["prefixItems"])
         return f"array of {type_name(schema['items'])}" if schema.get("items") else "array"
     if kind == "object" and isinstance(schema.get("additionalProperties"), dict):
         return f"object of {type_name(schema['additionalProperties'])}"
@@ -49,14 +45,6 @@ def field_line(name: str, schema: dict, required: bool) -> str:
     return line
 
 
-def limit_items(limits) -> list[str]:
-    if isinstance(limits, dict):
-        return [f"{key}: {value}" for key, value in limits.items()]
-    if isinstance(limits, (list, tuple)):
-        return [str(item) for item in limits]
-    return [part.strip() for part in str(limits).split(";") if part.strip()]
-
-
 def operation_section(operation) -> list[str]:
     contract = operation.contract()
     lines = [f"### `{operation.operation_id}`", "", f"**{operation.title}.** "
@@ -64,7 +52,7 @@ def operation_section(operation) -> list[str]:
     if operation.description != operation.title:
         lines += [operation.description, ""]
     lines += [f"Postcondition: {operation.postcondition}", "", "Limits:", ""]
-    lines += [f"- {item}" for item in limit_items(operation.limits)] + [""]
+    lines += [f"- {part.strip()}" for part in operation.limits.split(";") if part.strip()] + [""]
     inputs = contract["input_schema"]
     properties = inputs.get("properties", {})
     required = set(inputs.get("required", []))
@@ -75,9 +63,8 @@ def operation_section(operation) -> list[str]:
             lines += [field_line(name, properties[name], wanted) for name in names] + [""]
     outputs = list(contract["output_schema"].get("properties", {}))
     lines += ["Output fields: " + ", ".join(f"`{name}`" for name in outputs) + ".", ""]
-    example = getattr(operation, "example", None)
-    if isinstance(example, dict):
-        lines += ["Example input:", "", "```json", json.dumps(example, indent=2, ensure_ascii=False), "```", ""]
+    if operation.example:
+        lines += ["Example input:", "", "```json", json.dumps(operation.example, indent=2, ensure_ascii=False), "```", ""]
     return lines
 
 

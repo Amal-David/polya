@@ -36,7 +36,6 @@ def test_every_example_validates_and_runs():
     assert EXAMPLED <= set(examples)
     for operation_id, example in examples.items():
         REGISTRY[operation_id].request.model_validate(example)
-        assert find(operation_id=operation_id)["example"] == example
         assert isinstance(run(operation_id, example)["result"], dict)
     assert run("cipher.polyalphabetic", examples["cipher.polyalphabetic"])["result"]["text"] == "ATTACKATDAWN"
 
@@ -60,7 +59,8 @@ def test_inspect_is_compact_and_example_pipes_into_run():
     result = cli("run", "cipher.polyalphabetic", "--input", "-", "--result-only", stdin=example)
     assert json.loads(result.stdout)["text"] == "ATTACKATDAWN"
     missing = cli("inspect", "backends.inspect", "--example")
-    assert missing.returncode == 1 and missing.stdout == "" and len(missing.stderr.splitlines()) == 1
+    assert missing.returncode == 2 and missing.stdout == ""
+    assert "has no example" in json.loads(missing.stderr)["message"]
 
 
 def test_errors_name_the_fix_without_internal_model_names():

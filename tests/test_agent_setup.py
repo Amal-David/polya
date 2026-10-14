@@ -34,6 +34,12 @@ def test_documentation_links_resolve_inside_the_repository():
             assert resolved.exists(), (path, target)
 
 
+def test_package_version_matches_distribution_metadata():
+    import polya
+    from importlib import metadata
+    assert polya.__version__ == metadata.version("polya-puzzles")
+
+
 def test_operation_reference_matches_the_registry():
     spec = importlib.util.spec_from_file_location(
         "generate_operations_doc", ROOT / "scripts/generate_operations_doc.py")

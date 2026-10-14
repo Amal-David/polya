@@ -3,7 +3,7 @@
 Polya can call [Jacobian](https://github.com/morluto/jacobian) operations for exact
 number theory, linear algebra, combinatorics, finite groups, graph theory, SAT/SMT
 and proof checking. Jacobian runs in its own interpreter; it is not copied or
-installed into Polya's. Polya 0.2.2 supports Python 3.11 to 3.15. The reviewed
+installed into Polya's. Polya 0.3.0 supports Python 3.11 to 3.15. The reviewed
 Jacobian 0.23.0 release requires Python `>=3.12,<3.14` and pins native
 dependencies (notably Z3 5.1) that conflict with Polya's Z3 requirement.
 
