@@ -20,21 +20,21 @@ Built around reusable mechanisms across puzzle families, not one puzzle or prize
 ```bash
 git clone https://github.com/Amal-David/polya.git
 cd polya
-python -m pip install ".[solvers,learning]"
-polya find "gsmg"
-polya inspect mechanism.scan
-python -m examples.cryptic_demo
+python -m pip install ".[imaging]"
+polya find "calibrated target"
+polya inspect crypto.openssl_scan
+python -m examples.crypto_frontier_demo
 ```
 
-Start with the [cryptographic-puzzle guide](docs/CRYPTO-PUZZLES.md): classical
-ciphers, spiral extraction, crib constraints, and finite decoding-recipe search.
-The demonstration reproduces published checkpoints; it does not solve the final
-GSMG gate. Raw image/audio interpretation is not implemented.
+Start with [artifact-to-target experiments](docs/CRYPTO-FRONTIER.md) or
+[classical ciphers and recipes](docs/CRYPTO-PUZZLES.md). The demonstration recovers
+withheld parameters in synthetic image-to-AES cases and reproduces a published
+GSMG checkpoint; it does not solve the final GSMG gate.
 
-Python 3.11+. Install `.` without extras for the reference solver and native
-automata learner. Inspect available backends with
-`polya run backends.inspect --json '{}'`. Source installation is the supported
-path; this project has not been published to PyPI.
+Python 3.11+. The `imaging` extra provides lossless PNG sample-plane extraction;
+`solvers` and `learning` add optional symbolic/learning backends. Inspect actual
+availability with `polya run backends.inspect --json '{}'`.
+Source installation is supported; this project has not been published to PyPI.
 
 ## Use from Python
 
@@ -60,32 +60,32 @@ It exposes **`puzzle.find`** to discover or inspect an operation and
 
 | Area | Operations |
 | --- | --- |
+| Image evidence | Lossless PNG channel/bit selection, source hashes and pixel coordinates |
 | Cryptic decoding | Bifid, Vigenere/Beaufort, checkerboards, explicit alphabets and radix conventions |
 | Mechanism search | Finite recipe products, shared intermediates, source-labelled cribs, scoped checkpoints |
-| Transformations | Strict byte decoding, text profiles, corner-aware spirals, indexed candidates |
+| Crypto targets | Calibrated multi-lock scans, exact SHA256/P2PKH checks, binary-safe readings and bound resume IDs |
 | Constraints | Z3 and CP-SAT adapters, finite reference solver, answer uniqueness, forced values |
-| Hypotheses | Explicit assumptions, source-linked contradictions, differing predictions |
 | Automata | Sequence rules, batched replay, shortest distinguishing inputs, bounded active learning |
-| Verification | Independent assignment checks, exact commitments, explicit crypto derivations |
 
 Results describe the **supplied model**, not the author's intended meaning.
-Timeouts stay unknown; checkpoint replay is not a new solution; passing bounded
-conformance does not prove global equivalence.
+Timeouts stay unknown; valid padding is not a solution; bounded conformance does
+not prove global equivalence. Raw audio and semantic image interpretation remain
+outside the implementation. No agent-speedup or new open-puzzle solve is claimed.
 
 ## Documentation
 
-[Cryptographic puzzles](docs/CRYPTO-PUZZLES.md) · [Quickstart](docs/QUICKSTART.md) ·
-[Symbolic models](docs/SYMBOLIC.md) · [Automata](docs/AUTOMATA.md) ·
-[Architecture](docs/ARCHITECTURE.md) · [Coverage](docs/HOLISTIC-COVERAGE.md) ·
-[Validation](validation/POLYA-MIGRATION.md) ·
-[Batching, workers, ledger and evaluation](docs/EXECUTION-AND-EVALUATION.md)
+[Crypto frontier](docs/CRYPTO-FRONTIER.md) · [Cipher recipes](docs/CRYPTO-PUZZLES.md) ·
+[Quickstart](docs/QUICKSTART.md) · [Symbolic models](docs/SYMBOLIC.md) ·
+[Automata](docs/AUTOMATA.md) · [Architecture](docs/ARCHITECTURE.md) ·
+[Coverage](docs/HOLISTIC-COVERAGE.md) · [Validation](validation/POLYA-MIGRATION.md) ·
+[Workers, ledger and evaluation](docs/EXECUTION-AND-EVALUATION.md)
 
 ## Development
 
 ```bash
-python -m pip install -e ".[test,solvers,learning]"
+python -m pip install -e ".[test,imaging,solvers,learning]"
 python -m pytest -q
-python -m examples.structured_demo
+python -m examples.crypto_frontier_demo
 ```
 
 Pre-stable research software. Existing `puzzleops` imports remain supported.

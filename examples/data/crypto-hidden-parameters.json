@@ -1,0 +1,68 @@
+[
+  {
+    "id": "synthetic-712",
+    "png_base64": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAADG0lEQVR4nAEQA+/8AJX/+yvaZRyX4oplBUS37Q7PH7l195x3BidtbyrkCNNtxNu+sasGvt/XvJFylIT73gCKGlROA2X8PgZ5ot2JWQoCsPLN/ea/rFtJ22iz1+YV+nCKd+ptCzz127Bu6z/LcMsArXk85/TRrQQMg9QGpQrhTQhN7TuW29/H87pc4LY3haRdvR/+0kdgKb58MPqP3qU9AIr1+Nz4hZgNeFOBj/3VWP1okccHq1bjPiLSXfC3q7xdk3T//ifLNWSGBNaByG61bgCc2XQBKZFfXP9RBigicnldT1Z8hNy+i/7qLhZMEuO6Ss56ocDzvAAtdzZEwxEiXdAANDelH/2b/atJnVEBfWfNdyJNwsl//vxQN02KldwDOxtt7PBK401dc/3m0lqX8PXdADCTYO0LKbZ9KwIs+7K2JD8n+4id4n1IBKZ3OfRguWsRhIOniDjboVUVLYoNQPV4KgCoL7i8im7wDengUW5wWbvdmCqlOYHF4f4lKla5cM3CdU7mH72yExLG5AxKwPHdB38AFnqYUWsFYjmSdnDx9FSNnuEri6fEhv+fbWALSPCmDQi6ezSWATrHCdzvynI3w3uqAKioG+K51c8JDMEEWT21PC/c0pNdgbgizM7V05CE6hzMYNL69W2NnuV22+VkJhl49QBlZr3Im9Nsfx4h9jrPfEZpAVxchc2TEUBgGAVNLEFX8a4RbRQCp4RBG6/6OQgk7eQAaiDcAMsbvkaLijEK84bQbseQXQNedJhzBgyPHSVVhC1UEIUFwlrGmIVESaaR51aEAM1U+ZSIAo+ulccnAsrXjbj+k+IP6thAjCS4mRMI1gorHt1rqNrkMi1HoRxg9D82QgBA8aI9b1CGgjY9BP2zS9gNPvMo0yO6Go2/fthaG/sNdHboQo9HB/Mub9NyaHHq97UAyURsHNoNFkwh+2n0GEp0JB63DGjKYlCpmS1LLBAnts/tn5OoWMy2u/RRL2NkzTDoAMarsioylIhX+WAFGVMlMi2CF5jxRWmyoqvhlOgQB99lEO27jwf3fWYw0HnGEknDB3z0gc2JXgvQAAAAAElFTkSuQmCC",
+    "lock": {
+      "id": "withheld-parameter-lock",
+      "blob_hex": "53616c7465645f5f4bbc9b0af8b599f9703059ff5cd52647685329f45c4f3181cd683b15a53bcaf000bcc0b3dea37c0233d68a1d6f4bcf72adbab3b99badf5801f3ba85f6c2fe182dbac48fa4e0049d2dae6949dd08551a32e26089d63fbae34",
+      "digest": "sha256",
+      "password_mode": "sha256_hex",
+      "target": {
+        "kind": "sha256",
+        "value": "427c7eb99711b6f3cc678620c1abb622365ff287f5e98451a835e895d956eefd",
+        "source": "Synthetic generator commitment to binary plaintext"
+      },
+      "calibration": {
+        "blob_hex": "53616c7465645f5f1e7350a79d5d03103e83d1244acb4da5d6deb59558997eb56e68888467e53735644865a0d9445223",
+        "candidate_hex": "63616c6962726174696f6e2d6b6579",
+        "plaintext_sha256": "0706ea68e4cdd982c1fb787d4149380dac7414377f6830325a95007e00fff5d3",
+        "source": "Independent OpenSSL CLI control",
+        "provenance": "synthetic"
+      }
+    }
+  },
+  {
+    "id": "synthetic-981",
+    "png_base64": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAADG0lEQVR4nAEQA+/8AHAcRrS5/DS57O39WlGeG/ZMTbeUoa8hBBgIxDBsbXVOW2BZ0dGFMXALfMIrxe/iPQAcheEWuXR7mlRpPNDJrGK36Jyw6gfmjU+hWjoVX41gGbyTW2DTiYITFJjOgVozneoA8KeQ0ScrMdCruTx8IIvXcLo7/w3VvgGFdbcWI4Tg0zRpuN7S9JD+ehlLpJRr2DXnAIjJeSq2Oxoig9v54ghAIGOND36XIezB56hlxt6o1wOyaSDrqtMIS4pu2VFgvFBTewBoO2pKH21rytmTAA1i9Dp5GWz7c0lbi5sE8S2OL3UrhV44NScZxRjSB5fnWw8U9ZwALUe6veDf2Uo7Ek+PeJTtaO4ic1ISqxCMjbRZXujoTAeMPlRJC5x4/6BN7srDPW4XAL+Bi+KKKYBO5Ugl2Y9zlvETnWJ1rrOTDlWvQE6xHjxpWtilHj5ByI2ViCfWJdwRHwB2v69quaqmPsvxrConKLIqMZBLA1XNf7GSXzO1vxafqFrV3U1/3AuqufJr33tUODgAxmI2T37YAYqY6hjFZf57FZOCx+PXtBYEzHKZWAs377wl/dS8XoG+VabvVim5pxElALOdruhLoPAejyauFRpv+k+AMwkopLpyOEJzXTAL8Hwcw9VtrB1g7N+yOyYxHGNuYgCfUHsPqhW/dYieXzz/pdOyyAIf17xDBMpYzPQWD3pBKmXs6ZiXF+Rz9PbtUTkuEdEAeHSHXckfz7X4T8petTMhH25DjHYtiERyTXBy3xyKvCl3t8ADT0MBhfEB6myrgoBQANETDjyNqkpQyRu40Rc05EkCGTCNxdqLefrb1urzMZlshA0bJLiQS+RbIs9WzgiI7ADQuMQ5lgX3ci7Y2AiL8Wx3jC4mtNSkLR77oOsaYjivvibtpAD1zbmnBG0XkJZE6bQAKxtRJ6y3Jx5OuYj4giAlcX/5V9foNpj+UNk/fewm5BCHIxxfjYog9+hSm4qiUVhFAEkBBAkcuI7HRXtJV6VIreqi34UjEsXnLi+zBa6uMYU5faU0Wipif3vtucKjIP9KljjJdKjgG4/MAAAAAElFTkSuQmCC",
+    "lock": {
+      "id": "withheld-parameter-lock",
+      "blob_hex": "53616c7465645f5f82bdc0fbdb268504547b7eb5767c7b3151d5eb2606ee06bd931561106b8d81bd410912082c0d541d2bd3aa60cf92f4e6fb787d139fdabf6bd7e9edd5afec6032bbaf6808c89bd5b4c5517be87fb2c30fbbe91da347620ab2",
+      "digest": "sha256",
+      "password_mode": "sha256_hex",
+      "target": {
+        "kind": "sha256",
+        "value": "086967f547b2b4b44386c6d10b1a3f5b6a7f703703f092aa2d4645b44360d028",
+        "source": "Synthetic generator commitment to binary plaintext"
+      },
+      "calibration": {
+        "blob_hex": "53616c7465645f5f4ce6bd8b218c0e1bf6659bf97847ef92003f1f23a9f79e661bb88a0bf7ac1ae2504fe89275295d78",
+        "candidate_hex": "63616c6962726174696f6e2d6b6579",
+        "plaintext_sha256": "0706ea68e4cdd982c1fb787d4149380dac7414377f6830325a95007e00fff5d3",
+        "source": "Independent OpenSSL CLI control",
+        "provenance": "synthetic"
+      }
+    }
+  },
+  {
+    "id": "synthetic-129",
+    "png_base64": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAADG0lEQVR4nAEQA+/8AIsWzHOpdjlPRYx2RvbrRDWFJ4Uu2BV6WTJ79xqAl6dKoPYzSmBR5F6uk7vhp7RNWgDEbwR0T2yIcSvVUWMAFrnIWgZLXpbAhc7ExJ52aPULvsZi5PJrmzvRZDv+OOHkiCUAO37W1qq0t4B+6lq5iUTwA6LQbQywCDjGR/sS8fPH3gS/EKuVFoEFGKiyNPSWMCdqAJ7PkFSktda9ZM6uIJkKr6iaW1zWOAkLe5TMF8ypgmc9mJLj0RmSLoUoNEfV52DL9AAkdBL0nY9jDxm/gy3yPBDw3Nx1v/t06f/XlmvRFak52qUMoDkeKDGRkBm4B9LrVIIAGKAao9DrUr9Ic5ky+75OEU7ONO28ZHgnn6b0/ZCTbXn3HUPAKxK7XjzPi86evCbkAGEIvtxtljsP8FYCcFywqhn2BmUgY1QWJ+iOseL0MQtq1G+LQK3DBLzLw0CRLlj7rgCu+iNbBB8fkG3A5ySx9p+Reamw00BE725I4DttQcDfcnuzRAVosHaWDEOv3e+Sm+cAGaKsBXK29xRG4qb9v52W5x55rTvAEmgv+urMy9Zcx2lB9Dpd3Lf4jf/IrOnG2mxWAARMigY+GveGaNtRCBbeOQj6Mmy5QS55i9WWLSn293JafmXIVXIY73IEaC51nvEMdQCqYzCDaE/WEkIsRrq9UrLA20w5b59xF4/ebt1TKLTIZYE/lNmgL3Ir5szICn1jE6MAXIbHdvbqCF6sGeobR9N5tjufVKhwV+yc+uyga7fUpXuocLz3ahjEnsAEXAjlxm4JAFIuGCEDdZgNG74MT4K+IN0qghdaTRmD+Q2FzMMqX1pWDUlHECVOyODnHXa6QGMAogA3vB1seN7z395gDL23oPRYoYqjmYOolekhmHKi02Khttljv0Q1Ou8oX4lHtt5Sju0Awp9TFEiVKWidN8JOxfqGF2XG3xjNkCfbZlxw/8BUTQ7eShze1hBk7s7Vaem5HQGjAJWZcmjV1E2+G4JZOOR16L7fb6q0CeR2ssWulKYSNn+ZD6OY+HL06uFdTeb00Tba5IIkhuRIURrLAAAAAElFTkSuQmCC",
+    "lock": {
+      "id": "withheld-parameter-lock",
+      "blob_hex": "53616c7465645f5f7fac7f5ddc139f70641bf6f21365bfaf0698a3c16938acf839739ea89eabc9dcaac5019f7bccb4fdb2e04fa3f1a64fa80d2864ad0cbab509fcb5e97a496e9e5c3b38e63090d6cbca8e8da32034cd10ba434fac4158a5191a",
+      "digest": "sha256",
+      "password_mode": "sha256_hex",
+      "target": {
+        "kind": "sha256",
+        "value": "450aedca1d4fa1536d0792afab9a2f58feae74efd21f0700580c81bc0410c53b",
+        "source": "Synthetic generator commitment to binary plaintext"
+      },
+      "calibration": {
+        "blob_hex": "53616c7465645f5fe23f428c993442696617b317d69307d783e14ac429e020bedcdadd68f67935a59257e74c78e05456",
+        "candidate_hex": "63616c6962726174696f6e2d6b6579",
+        "plaintext_sha256": "0706ea68e4cdd982c1fb787d4149380dac7414377f6830325a95007e00fff5d3",
+        "source": "Independent OpenSSL CLI control",
+        "provenance": "synthetic"
+      }
+    }
+  }
+]
