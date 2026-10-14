@@ -82,3 +82,13 @@ see [performance policy](docs/PERFORMANCE.md). Do not promise a universal speedu
 Use a focused branch and reviewed diff. Never force-push main or overwrite a moved
 head. Merge only the inspected head, respect required checks, and read back main
 after the merge. Keep README concise; put detailed decisions and evidence in docs.
+
+## Delegating to Jacobian
+
+When a puzzle asks for a precise mathematical fact beyond native Polya
+operations, use `jacobian.find` to match and inspect one upstream Jacobian
+contract, then `jacobian.run` with the exact typed payload. The optional
+backend lives in a separate Python 3.12 runtime: never import it into Polya
+3.15 or reinterpret a mathematical witness as proof of the original clue.
+Read [Jacobian bridge and weekly sync](docs/JACOBIAN.md). The weekly workflow
+proposes reviewed source/release observation PRs, never silent upgrades.

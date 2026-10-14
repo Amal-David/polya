@@ -53,3 +53,11 @@ experiments, retractions, remaining evidence gaps, and one high-value next test.
 Preserve source artifacts and receipts; do not expose private material or secrets.
 Local tools do not browse, transact, run untrusted code, or acquire observations
 that they merely propose. External actions need separate authorization and tools.
+## Exact mathematics via Jacobian
+
+If a clue requires finite-field, integer/number-theoretic, graph, algebraic,
+combinatorial, SAT/SMT or proof operations beyond Polya, first call
+`jacobian.inspect` to check availability, `jacobian.find` to match or inspect
+upstream `math.find`, then `jacobian.run` to execute `math.run`. This is a
+separate pinned runtime, never an implicit installation or proof of the
+clue interpretation. See [the integration guide](../../../docs/JACOBIAN.md).

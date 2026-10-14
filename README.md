@@ -49,6 +49,14 @@ result = run("cipher.polyalphabetic", {
 assert result["text"] == "ATTACKATDAWN"
 ```
 
+## Optional mathematics through Jacobian
+
+Polya can discover and invoke [Jacobian](https://github.com/morluto/jacobian)
+math operations when a puzzle needs exact number theory, graph algorithms,
+linear algebra, combinatorics or proof checks. The two runtimes remain isolated
+(Python 3.15 and Jacobian 3.12); there is no mandatory Jacobian dependency.
+See [installation, delegation and weekly upstream sync](docs/JACOBIAN.md).
+
 ## Use with agents
 
 Run `polya mcp` or `python -m polya mcp` as a local stdio server.
