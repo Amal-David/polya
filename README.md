@@ -8,10 +8,10 @@
   <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11 or newer">
 </p>
 
-Polya gives AI agents **21 composable operations** for transformations, symbolic
-constraints, automata, and candidate verification. Python, a JSON CLI, and a
-stdio MCP server share the same typed contracts. The agent chooses the strategy;
-the library supplies bounded, inspectable computations.
+Polya gives AI agents composable operations for cryptographic-puzzle decoding,
+symbolic constraints, automata, and candidate verification. Python, a JSON CLI,
+and a stdio MCP server share the same typed contracts. The agent chooses the
+strategy; the library supplies bounded, inspectable computations.
 
 Built around reusable mechanisms across puzzle families, not one puzzle or prize.
 
@@ -20,32 +20,33 @@ Built around reusable mechanisms across puzzle families, not one puzzle or prize
 ```bash
 git clone https://github.com/Amal-David/polya.git
 cd polya
-python -m pip install ".[solvers,learning]"
-polya find "unique forced contradiction"
-polya inspect symbolic.analyze
+python -m pip install ".[imaging]"
+polya find "calibrated target"
+polya inspect crypto.openssl_scan
+python -m examples.crypto_frontier_demo
 ```
 
-Python 3.11+. Install `.` without extras for the reference solver and native
-automata learner. Inspect available backends with
-`polya run backends.inspect --json '{}'`. Source installation is the supported
-path; this project has not been published to PyPI.
+Start with [artifact-to-target experiments](docs/CRYPTO-FRONTIER.md) or
+[classical ciphers and recipes](docs/CRYPTO-PUZZLES.md). The demonstration recovers
+withheld parameters in synthetic image-to-AES cases and reproduces a published
+GSMG checkpoint; it does not solve the final GSMG gate.
+
+Python 3.11+. The `imaging` extra provides lossless PNG sample-plane extraction;
+`solvers` and `learning` add optional symbolic/learning backends. Inspect actual
+availability with `polya run backends.inspect --json '{}'`.
+Source installation is supported; this project has not been published to PyPI.
 
 ## Use from Python
 
 ```python
 from polya import run
-from polya.model import op
 
-result = run("symbolic.analyze", {
-    "model": {
-        "variables": {"x": {"lower": 0, "upper": 9}},
-        "constraints": [{"id": "clue", "expr": op("eq", op("add", "x", 3), 7)}],
-        "answer_variables": ["x"],
-    }
+result = run("cipher.polyalphabetic", {
+    "text": "LXFOPVEFRNHR",
+    "key": "LEMON",
+    "variant": "vigenere",
 })["result"]
-
-assert result["forced_values"] == {"x": 4}
-assert result["uniqueness"] == "UNIQUE"
+assert result["text"] == "ATTACKATDAWN"
 ```
 
 ## Use with agents
@@ -59,28 +60,32 @@ It exposes **`puzzle.find`** to discover or inspect an operation and
 
 | Area | Operations |
 | --- | --- |
-| Transformations | Strict byte decoding, text profiles, grid traversal, indexed candidates |
+| Image evidence | Lossless PNG channel/bit selection, source hashes and pixel coordinates |
+| Cryptic decoding | Bifid, Vigenere/Beaufort, checkerboards, explicit alphabets and radix conventions |
+| Mechanism search | Finite recipe products, shared intermediates, source-labelled cribs, scoped checkpoints |
+| Crypto targets | Calibrated multi-lock scans, exact SHA256/P2PKH checks, binary-safe readings and bound resume IDs |
 | Constraints | Z3 and CP-SAT adapters, finite reference solver, answer uniqueness, forced values |
-| Hypotheses | Explicit assumptions, source-linked contradictions, differing predictions |
-| Automata | Sequence rules, deterministic replay, shortest distinguishing inputs, bounded active learning |
-| Verification | Independent assignment checks, exact commitments, explicit crypto derivations |
+| Automata | Sequence rules, batched replay, shortest distinguishing inputs, bounded active learning |
 
 Results describe the **supplied model**, not the author's intended meaning.
-Timeouts stay unknown; passing bounded conformance does not prove global
-equivalence. Raw image/audio interpretation is outside the current implementation.
+Timeouts stay unknown; valid padding is not a solution; bounded conformance does
+not prove global equivalence. Raw audio and semantic image interpretation remain
+outside the implementation. No agent-speedup or new open-puzzle solve is claimed.
 
 ## Documentation
 
-[Quickstart and examples](docs/QUICKSTART.md) · [Symbolic models](docs/SYMBOLIC.md) ·
+[Crypto frontier](docs/CRYPTO-FRONTIER.md) · [Cipher recipes](docs/CRYPTO-PUZZLES.md) ·
+[Quickstart](docs/QUICKSTART.md) · [Symbolic models](docs/SYMBOLIC.md) ·
 [Automata](docs/AUTOMATA.md) · [Architecture](docs/ARCHITECTURE.md) ·
-[Coverage and roadmap](docs/HOLISTIC-COVERAGE.md) · [Validation](validation/POLYA-MIGRATION.md)
+[Coverage](docs/HOLISTIC-COVERAGE.md) · [Validation](validation/POLYA-MIGRATION.md) ·
+[Workers, ledger and evaluation](docs/EXECUTION-AND-EVALUATION.md)
 
 ## Development
 
 ```bash
-python -m pip install -e ".[test,solvers,learning]"
+python -m pip install -e ".[test,imaging,solvers,learning]"
 python -m pytest -q
-python -m examples.structured_demo
+python -m examples.crypto_frontier_demo
 ```
 
 Pre-stable research software. Existing `puzzleops` imports remain supported.

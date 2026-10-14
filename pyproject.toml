@@ -21,6 +21,7 @@ Documentation = "https://github.com/Amal-David/polya/tree/main/docs"
 [project.optional-dependencies]
 solvers = ["z3-solver>=4.13,<5", "ortools>=9.12,<10"]
 learning = ["aalpy>=1.5,<2"]
+imaging = ["pillow>=11.3,<14"]
 test = ["pytest>=8,<10", "jsonschema>=4,<5"]
 
 [project.scripts]

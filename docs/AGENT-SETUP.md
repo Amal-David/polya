@@ -56,3 +56,11 @@ Client behavior can change; check the host's documentation rather than guessing:
 - [OpenAI Codex skills](https://developers.openai.com/codex/skills)
 - [Claude Code skills](https://code.claude.com/docs/en/skills)
 - [Claude Code memory and imports](https://code.claude.com/docs/en/memory)
+
+## Native solver compatibility
+
+The supported Z3 range is >=4.13,<5, matching the package metadata. An older
+system libz3 (including 4.8.12) is rejected before context creation and reports
+UNAVAILABLE, rather than crashing during SMT-LIB initialization or pretending
+to solve. The reference backend remains available explicitly. The legacy CI
+job tests this rejection contract; it does not certify legacy solving support.

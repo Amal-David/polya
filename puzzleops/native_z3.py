@@ -30,6 +30,16 @@ def library_path():
     return ctypes.util.find_library('z3')
 
 
+def require_supported_version(version: str) -> None:
+    """Reject untested/unsupported native ABIs before creating a solver context."""
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", version)
+    if match is None or not (4, 13, 0) <= tuple(map(int, match.groups())) < (5, 0, 0):
+        raise BackendUnavailable(
+            f"Unsupported native Z3 {version!r}; Polya requires Z3 >=4.13,<5. "
+            "Install the z3/solvers extra or explicitly use the reference backend."
+        )
+
+
 def load_library():
     path=library_path()
     if not path: raise BackendUnavailable("Z3 is unavailable. Install the solvers extra from the source checkout.")
@@ -47,6 +57,7 @@ def load_library():
             f=getattr(lib,name); f.argtypes=args; f.restype=rest
         except AttributeError as exc:
             raise BackendUnavailable('Installed libz3 lacks the supported C API') from exc
+    require_supported_version(lib.Z3_get_full_version().decode())
     return lib
 
 

@@ -18,6 +18,11 @@ python -m polya find "hypothesis forced contradiction"
 python -m polya inspect symbolic.analyze
 ```
 
+For cryptographic puzzles, read [the crypto guide](../../../docs/CRYPTO-PUZZLES.md)
+and [artifact-to-target guide](../../../docs/CRYPTO-FRONTIER.md). Start at the actual
+unresolved step. Use extraction, classical-cipher search, and calibrated targets
+when appropriate; a fast formal solver does not discover the intended mechanism.
+
 ## Choose an experiment
 
 Preserve original artifacts and separate observations from interpretations.
