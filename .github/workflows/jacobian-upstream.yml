@@ -1,0 +1,44 @@
+name: Jacobian weekly upstream review
+on:
+  schedule:
+    # Monday 05:41 UTC / 11:11 IST. Updates are PRs, never automatic merges.
+    - cron: '41 5 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: jacobian-upstream-source-sync
+  cancel-in-progress: false
+jobs:
+  review-upstream:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+      - name: Observe upstream source and published artifacts (no source execution)
+        run: python scripts/sync_jacobian.py --apply | tee jacobian-sync-summary.txt
+      - name: Test the updater against deterministic offline fixtures
+        run: python -m unittest discover -s tests -p 'test_jacobian_sync.py'
+      - name: Open a review PR when the source/release metadata changes
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          add-paths: puzzleops/jacobian_pin.json
+          branch: automation/jacobian-upstream-source
+          delete-branch: true
+          commit-message: 'chore(jacobian): observe upstream source and release metadata'
+          title: 'chore(jacobian): weekly upstream source and release review'
+          body: |
+            Weekly automated observation of `morluto/jacobian` source HEAD and PyPI release.
+            This PR **does not vendor upstream code or update Polya's tested runtime version**.
+            Compare upstream commits and release notes. If promoting a new version,
+            update the reviewed runtime pin and release provenance separately,
+            run the real Python 3.15 -> isolated 3.12 Jacobian MCP integration job,
+            and obtain approval before merging. No GIL/ABI assumptions.
+          draft: true
