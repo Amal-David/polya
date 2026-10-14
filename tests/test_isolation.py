@@ -10,7 +10,7 @@ def fixture_process(code):
     original=subprocess.Popen
     def launch(*args,**kwargs):
         return original([sys.executable,'-c',code],**kwargs)
-    return patch('puzzleops.isolation.subprocess.Popen',side_effect=launch)
+    return patch('polya.isolation.subprocess.Popen',side_effect=launch)
 
 
 def test_real_worker_matches_operation_and_is_reaped():
@@ -75,6 +75,6 @@ def test_process_group_permission_denial_falls_back_to_child_kill():
     from polya.isolation import _kill
     process=Mock(pid=12345)
     process.poll.return_value=None
-    with patch('puzzleops.isolation.os.killpg', side_effect=PermissionError('restricted')):
+    with patch('polya.isolation.os.killpg', side_effect=PermissionError('restricted')):
         _kill(process)
     process.kill.assert_called_once_with()

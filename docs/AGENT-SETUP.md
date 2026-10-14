@@ -8,7 +8,7 @@ agent configuration or grant network access.
 
 - `AGENTS.md` is the canonical repository policy: broad puzzle coverage, public
   contracts, exact commands, compatibility, adversarial review and independent checks.
-- `puzzleops/AGENTS.md` adds runtime rules; `tests/AGENTS.md` adds test requirements.
+- `polya/AGENTS.md` adds runtime rules; `tests/AGENTS.md` adds test requirements.
 - `CLAUDE.md` imports the root guide. Copilot's repository instructions refer to it.
 - The pull-request template asks for verification, counterarguments and limitations.
 

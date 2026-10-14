@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 import pytest
-from puzzleops import native_z3
+from polya import native_z3
 from polya.symbolic import solve
 
 

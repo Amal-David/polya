@@ -1,8 +1,8 @@
 import itertools
 import unittest
 
-from puzzleops import find, run
-from puzzleops.primitives import candidate_expand
+from polya import find, run
+from polya.primitives import candidate_expand
 
 
 class PrimitiveTests(unittest.TestCase):

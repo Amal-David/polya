@@ -41,13 +41,11 @@ learning = ["aalpy>=1.5,<2"]
 test = ["pytest>=8,<10", "jsonschema>=4,<5"]
 
 [project.scripts]
-polya = "puzzleops.__main__:main"
-polya-mcp = "puzzleops.mcp_server:main"
-puzzleops = "puzzleops.__main__:main"
-puzzleops-mcp = "puzzleops.mcp_server:main"
+polya = "polya.__main__:main"
+polya-mcp = "polya.mcp_server:main"
 
 [tool.setuptools.packages.find]
-include = ["polya*", "puzzleops*"]
+include = ["polya*", "puzzleops"]
 
 [tool.setuptools.package-data]
-puzzleops = ["jacobian_pin.json"]
+polya = ["jacobian_pin.json"]

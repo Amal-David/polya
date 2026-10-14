@@ -21,20 +21,20 @@ def child(code, **env):
 
 
 def test_doctor_is_json_and_does_not_load_solver_or_validation_packages():
-    info = json.loads(child("import runpy,sys; sys.argv=['polya','doctor']; runpy.run_module('polya',run_name='__main__'); assert 'pydantic' not in sys.modules; assert 'puzzleops.native_z3' not in sys.modules"))
+    info = json.loads(child("import runpy,sys; sys.argv=['polya','doctor']; runpy.run_module('polya',run_name='__main__'); assert 'pydantic' not in sys.modules; assert 'polya.native_z3' not in sys.modules"))
     assert info['python'].startswith(f'{sys.version_info.major}.{sys.version_info.minor}.')
     assert info['native_frozendict'] == hasattr(builtins, 'frozendict')
     assert info['free_threaded_build'] == (sysconfig.get_config_var('Py_GIL_DISABLED') == 1)
 
 
 def test_discovery_does_not_probe_native_library():
-    child("from unittest.mock import patch; from puzzleops import native_z3; from polya import find; "
+    child("from unittest.mock import patch; from polya import native_z3; from polya import find; "
           "\nwith patch.object(native_z3, 'load_library', side_effect=AssertionError('unexpected native probe')):\n"
           " assert find('constraints')\n assert find(operation_id='symbolic.solve')\n")
 
 
 def test_source_snapshot_and_execution_mode_are_bound_to_receipts():
-    from puzzleops import catalog
+    from polya import catalog
     first = run('text.profile', {'text': 'abc'})
     with mock.patch.object(catalog, 'execution_mode', return_value={'gil_enabled': False, 'jit_enabled': True}):
         second = run('text.profile', {'text': 'abc'})
@@ -51,10 +51,7 @@ def test_frozen_mapping_owns_its_contents():
         frozen['b'] = 2
 
 
-def test_runtime_public_alias_is_the_same_implementation():
-    import polya.runtime
-    import puzzleops.runtime
-    assert polya.runtime is puzzleops.runtime
+def test_inspect_runtime_reports_interpreter():
     assert inspect_runtime()['python'].startswith(f'{sys.version_info.major}.{sys.version_info.minor}.')
 
 
@@ -64,7 +61,7 @@ def test_native_315_features_and_lazy_sqlite_import():
     from polya.automata import from_runs
     from polya.prepared import prepare_machine
     assert type(prepare_machine(from_runs([1])['machine']).symbol_ids) is builtins.frozendict
-    child("import sys; import puzzleops.__main__; assert 'sqlite3' not in sys.modules")
+    child("import sys; import polya.__main__; assert 'sqlite3' not in sys.modules")
     assert inspect_runtime()['profiling_package']
     assert inspect_runtime()['native_sentinel']
 
@@ -73,7 +70,7 @@ def test_native_315_features_and_lazy_sqlite_import():
 def test_native_sentinel_identity_roundtrip():
     import copy
     import pickle
-    from puzzleops.runtime import UNSET
+    from polya.runtime import UNSET
     assert copy.copy(UNSET) is UNSET
     assert pickle.loads(pickle.dumps(UNSET)) is UNSET
 

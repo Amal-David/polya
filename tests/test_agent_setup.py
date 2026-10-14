@@ -11,14 +11,14 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_agent_entrypoints_share_the_root_guide():
     assert "@AGENTS.md" in (ROOT / "CLAUDE.md").read_text()
     assert "../AGENTS.md" in (ROOT / ".github/copilot-instructions.md").read_text()
-    for path in ("puzzleops/AGENTS.md", "tests/AGENTS.md", "skills/polya/SKILL.md",
+    for path in ("polya/AGENTS.md", "tests/AGENTS.md", "skills/polya/SKILL.md",
                  "docs/AGENT-USAGE.md", "docs/PERFORMANCE.md"):
         assert (ROOT / path).is_file(), path
 
 
 def test_documentation_links_resolve_inside_the_repository():
     files = [ROOT / "README.md", ROOT / "AGENTS.md",
-             ROOT / "puzzleops/AGENTS.md", ROOT / "tests/AGENTS.md",
+             ROOT / "polya/AGENTS.md", ROOT / "tests/AGENTS.md",
              ROOT / ".github/copilot-instructions.md", ROOT / "skills/polya/SKILL.md",
              *sorted((ROOT / "docs").glob("*.md"))]
     for path in files:

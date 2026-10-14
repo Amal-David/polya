@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 from polya.ledger import Ledger, _coverage_ranges, _gaps
-from puzzleops import catalog
+from polya import catalog
 
 
 def test_persistent_retraction_reaches_transitive_dependents(tmp_path):
@@ -163,7 +163,7 @@ def test_deadline_records_only_completed_prefix_and_can_resume():
     with Ledger(':memory:') as log:
         # First trial: initial clock, loop, three kernel boundary pairs, final
         # clock. The next loop times out before touching the second ordinal.
-        with patch('puzzleops.plans.time.monotonic', side_effect=chain([0] * 9, repeat(100))):
+        with patch('polya.plans.time.monotonic', side_effect=chain([0] * 9, repeat(100))):
             execution = page(log, plan_fixture())
         result = execution['result']
         assert result['stop'] == result['next_start'] == 1
@@ -236,7 +236,7 @@ def test_wrong_or_tampered_execution_receipts_are_not_recorded(mutation):
         mutation(envelope)
         return envelope
 
-    with Ledger(':memory:') as log, patch('puzzleops.catalog.run', side_effect=tamper):
+    with Ledger(':memory:') as log, patch('polya.catalog.run', side_effect=tamper):
         with pytest.raises(ValueError, match='receipt'):
             page(log, plan_fixture())
         assert log.events() == []
@@ -268,7 +268,7 @@ def test_even_rehashed_results_cannot_invent_page_coverage(mutation):
             catalog.canonical_json(envelope['result']).encode()).hexdigest()
         return envelope
 
-    with Ledger(':memory:') as log, patch('puzzleops.catalog.run', side_effect=tamper):
+    with Ledger(':memory:') as log, patch('polya.catalog.run', side_effect=tamper):
         with pytest.raises(ValueError):
             page(log, plan_fixture())
         assert log.events() == []
@@ -294,7 +294,7 @@ def test_coherently_rehashed_stale_receipt_cannot_import_old_execution(stale_fie
             operation, normalized, stale_identity, stale_key, envelope['result'])
         return envelope
 
-    with Ledger(':memory:') as log, patch('puzzleops.catalog.run', side_effect=stale_execution):
+    with Ledger(':memory:') as log, patch('polya.catalog.run', side_effect=stale_execution):
         with pytest.raises(ValueError, match='receipt'):
             page(log, plan_fixture())
         assert log.events() == []
@@ -311,7 +311,7 @@ def test_execution_index_tampering_is_detected():
 
 
 def test_missing_dependency_prevents_execution_and_unknown_plan_is_explicit():
-    with Ledger(':memory:') as log, patch('puzzleops.catalog.run') as execute:
+    with Ledger(':memory:') as log, patch('polya.catalog.run') as execute:
         with pytest.raises(ValueError, match='dependency'):
             log.run('text.profile', {'text': 'a'}, dependencies=['missing'])
         execute.assert_not_called()
@@ -324,7 +324,7 @@ def test_missing_dependency_prevents_execution_and_unknown_plan_is_explicit():
 
 
 def test_raised_operation_error_produces_no_execution_evidence():
-    with Ledger(':memory:') as log, patch('puzzleops.catalog.run', side_effect=RuntimeError('failed')):
+    with Ledger(':memory:') as log, patch('polya.catalog.run', side_effect=RuntimeError('failed')):
         with pytest.raises(RuntimeError, match='failed'):
             page(log, plan_fixture())
         assert log.events() == []
@@ -361,6 +361,6 @@ def test_event_and_execution_index_are_committed_atomically():
 def test_excessive_coverage_fragmentation_is_explicitly_bounded():
     with Ledger(':memory:') as log:
         execution = page(log, plan_fixture(invalid=True))
-        with patch('puzzleops.ledger.MAX_QUERY_RANGES', 1):
+        with patch('polya.ledger.MAX_QUERY_RANGES', 1):
             with pytest.raises(ValueError, match='stored-range limit'):
                 log.plan_coverage(execution['result']['plan_id'])

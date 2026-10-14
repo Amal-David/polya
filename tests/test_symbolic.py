@@ -5,10 +5,10 @@ import random
 from unittest import mock
 import pytest
 
-from puzzleops import run,find
-from puzzleops.model import PuzzleModel,op,bitvec,evaluate,verify
-from puzzleops.symbolic import solve,analyze,capabilities,compare_hypotheses
-from puzzleops.native_z3 import native_version,sexprs,value
+from polya import run,find
+from polya.model import PuzzleModel,op,bitvec,evaluate,verify
+from polya.symbolic import solve,analyze,capabilities,compare_hypotheses
+from polya.native_z3 import native_version,sexprs,value
 
 HAS_Z3=native_version() is not None
 BACKENDS=['reference']+(['z3'] if HAS_Z3 else [])
@@ -57,7 +57,7 @@ def test_budget_never_becomes_unsat(backend):
     assert r['status']=='SAT' and not r['complete'] and r['reason']=='solver_check_budget'
     a=analyze(model(),backend=backend,max_checks=1)
     assert a['status']=='SAT' and a['uniqueness']=='UNKNOWN' and not a['complete']
-    with mock.patch('puzzleops.symbolic.Budget.remaining_ms',return_value=0):
+    with mock.patch('polya.symbolic.Budget.remaining_ms',return_value=0):
         assert solve(model(),backend=backend)['status']=='UNKNOWN'
 
 @pytest.mark.parametrize('backend',BACKENDS)
@@ -96,7 +96,7 @@ def test_bitvector_unsigned_wrap_and_shift(backend):
 
 @pytest.mark.parametrize('backend',BACKENDS)
 def test_automaton_inside_negation_and_empty_sequence(backend):
-    from puzzleops.automata import from_runs
+    from polya.automata import from_runs
     dfa=from_runs([2])['machine']
     m={'variables':{'x':{'lower':0,'upper':1},'y':{'lower':0,'upper':1}},
        'constraints':[rule('not_two',op('not',{'op':'automaton','vars':['x','y'],'machine':dfa}))]}

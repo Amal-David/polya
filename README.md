@@ -96,7 +96,7 @@ python -m pytest -q
 python -m examples.crypto_frontier_demo
 ```
 
-Pre-stable research software. Existing `puzzleops` imports remain supported.
+Pre-stable research software.
 See [contributing](CONTRIBUTING.md) for operation and test requirements.
 
 Inspired by [Jacobian](https://github.com/morluto/jacobian).

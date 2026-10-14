@@ -6,9 +6,9 @@ below execute the real installed Z3 library; record its actual version in CI.
 from __future__ import annotations
 from unittest import mock
 import pytest
-from puzzleops import native_z3
-from puzzleops.model import PuzzleModel, op
-from puzzleops.symbolic import Budget, analyze, solve
+from polya import native_z3
+from polya.model import PuzzleModel, op
+from polya.symbolic import Budget, analyze, solve
 
 class StrictConfigAPI:
     def __init__(self, *, null_config=False, null_context=False, bad_program=False):

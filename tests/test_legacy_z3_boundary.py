@@ -1,7 +1,7 @@
 """An obsolete native library must fail cleanly, never produce solver evidence."""
 from importlib import metadata
 import pytest
-from puzzleops import native_z3, run
+from polya import native_z3, run
 
 @pytest.mark.parametrize("version", ["4.8.12.0", "4.12.9", "unknown", "5.0.0"])
 def test_version_gate_rejects_unsupported_libraries(version):

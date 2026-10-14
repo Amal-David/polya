@@ -149,7 +149,7 @@ def test_resume_binds_inputs_targets_conventions_and_never_claims_whole_coverage
 
 def test_full_payload_is_charged_before_crypto_and_control_is_in_budget():
     args = make_spec()
-    with patch('puzzleops.crypto_targets.openssl_decrypt') as decrypt:
+    with patch('polya.crypto_targets.openssl_decrypt') as decrypt:
         result = scan_candidates(**args, max_decrypted_bytes=1)
     decrypt.assert_not_called()
     assert result['crypto_calls'] == 0 and result['trials'] == []
@@ -158,14 +158,14 @@ def test_full_payload_is_charged_before_crypto_and_control_is_in_budget():
 
 def test_timeout_does_not_advance_an_unfinished_trial():
     args = make_spec()
-    with patch('puzzleops.crypto_targets.time.monotonic', side_effect=[0, 100]):
+    with patch('polya.crypto_targets.time.monotonic', side_effect=[0, 100]):
         result = scan_candidates(**args)
     assert result['termination_reason'] == 'time_limit' and result['next_start'] == 0
     assert result['trials'] == [] and not result['complete']
 
 
 def test_key_backend_error_is_operational_not_no_match():
-    with patch('puzzleops.crypto_targets.ec.derive_private_key', side_effect=RuntimeError('test backend failure')):
+    with patch('polya.crypto_targets.ec.derive_private_key', side_effect=RuntimeError('test backend failure')):
         with pytest.raises(RuntimeError, match='backend failure'):
             check_target('00'*31+'01', {'kind': 'p2pkh', 'value': COMPRESSED, 'source': 'test'})
 
@@ -181,7 +181,7 @@ def test_key_backend_error_is_operational_not_no_match():
 ])
 def test_bad_plan_fails_before_any_kernel(mutation):
     args = make_spec(); mutation(args)
-    with patch('puzzleops.crypto_targets.openssl_decrypt') as decrypt:
+    with patch('polya.crypto_targets.openssl_decrypt') as decrypt:
         with pytest.raises(ValueError):
             scan_candidates(**args)
     decrypt.assert_not_called()

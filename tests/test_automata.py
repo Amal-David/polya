@@ -1,8 +1,8 @@
 import itertools
 import random
 import pytest
-from puzzleops.automata import Machine,from_runs,simulate,distinguish
-from puzzleops.symbolic import solve
+from polya.automata import Machine,from_runs,simulate,distinguish
+from polya.symbolic import solve
 
 
 def groups(word): return [len(list(g)) for a,g in itertools.groupby(word) if a==1]
@@ -73,7 +73,7 @@ def test_random_mealy_distinguishing_matches_independent_enumeration(seed):
     else: assert r['status']=='DISTINGUISHED' and len(found)==len(r['word'])
 
 
-@pytest.mark.skipif(__import__('puzzleops.native_z3',fromlist=['native_version']).native_version() is None,reason='5x5 integration case requires Z3')
+@pytest.mark.skipif(__import__('polya.native_z3',fromlist=['native_version']).native_version() is None,reason='5x5 integration case requires Z3')
 def test_nonogram_pattern_via_symbolic_dfa_constraints():
     variables={f'x{i}{j}':{'lower':0,'upper':1} for i in range(5) for j in range(5)}
     constraints=[];runs=[1,3,5,3,1]

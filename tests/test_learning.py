@@ -1,8 +1,8 @@
 import itertools
 import random
 import pytest
-from puzzleops.learning import learn_local,learn_mealy
-from puzzleops.automata import distinguish,simulate
+from polya.learning import learn_local,learn_mealy
+from polya.automata import distinguish,simulate
 
 
 def machine(seed=0):

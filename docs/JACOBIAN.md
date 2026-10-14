@@ -7,7 +7,7 @@ that conflict with Polya's native Z3 requirements. Run it separately.
 
 ## Installation
 
-Install the version recorded in `puzzleops/jacobian_pin.json` in an isolated
+Install the version recorded in `polya/jacobian_pin.json` in an isolated
 Python 3.12 environment. For example, using `uv`:
 
 ```sh
@@ -83,7 +83,7 @@ does not guarantee cleanup of detached POSIX workers. Passing same-group cleanup
 tests or exact-gcd integration does not close this gap. Full containment requires
 a separate reviewed supervision policy; no host security settings are changed.
 
-The source/release pin in `puzzleops/jacobian_pin.json` records the tested
+The source/release pin in `polya/jacobian_pin.json` records the tested
 runtime release and its independently observed upstream GitHub HEAD. The HEAD
 is **not** claimed to be the source revision used to build that wheel. The
 `release_source_sha` for 0.23.0 was obtained from its PyPI publishing

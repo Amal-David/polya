@@ -62,7 +62,7 @@ of all position pairs.
 `bijection` lists every pattern symbol, mapped output unit and first position.
 `NO_TARGET_MATCH` retains full disagreement evidence and an empty bijection.
 One candidate can be checked through Python, CLI or `puzzle.run` on MCP using
-the same operation. The new `polya.equality_patterns` module aliases `puzzleops`.
+the same operation.
 
 This is an equality-relation test, not an exact digest-value test. Many possible
 outputs may have the same pattern, especially when all symbols are distinct.

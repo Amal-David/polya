@@ -17,7 +17,3 @@ Keep README changes brief. Put contracts, examples, evidence, and limitations in
 `docs/` and `validation/`. Never include private keys, credentials, live puzzle
 answers, or third-party media without the appropriate rights. Retain attribution
 for catalogue metadata and dependencies.
-
-The `polya` namespace aliases `puzzleops` for compatibility. Update the shared
-implementation, not a second copy in the facade. A new public module needs a
-matching alias and compatibility test.

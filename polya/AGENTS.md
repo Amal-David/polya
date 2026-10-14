@@ -1,7 +1,6 @@
 # Runtime changes
 
-Read [the root guide](../AGENTS.md) first. This directory owns the implementation;
-polya modules alias it. Do not fork their behavior or break module identity.
+Read [the root guide](../AGENTS.md) first. This directory owns the implementation.
 
 A new or changed operation needs a typed contract in catalog.py/extensions.py,
 explicit scope, resource limits, and an independently checked result. Keep the

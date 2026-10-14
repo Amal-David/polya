@@ -24,7 +24,7 @@ jobs:
           set -euo pipefail
           uv python install 3.12
           uv venv --python 3.12 "$RUNNER_TEMP/jacobian-env"
-          VERSION=$(python -c 'from puzzleops.jacobian_bridge import pin; print(pin()["version"])')
+          VERSION=$(python -c 'from polya.jacobian_bridge import pin; print(pin()["version"])')
           uv pip install --python "$RUNNER_TEMP/jacobian-env/bin/python" "jacobian==$VERSION"
           "$RUNNER_TEMP/jacobian-env/bin/jacobian-mcp" --version
           echo "POLYA_JACOBIAN_MCP=$RUNNER_TEMP/jacobian-env/bin/jacobian-mcp" >> "$GITHUB_ENV"

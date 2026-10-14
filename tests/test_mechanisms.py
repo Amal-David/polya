@@ -103,7 +103,7 @@ def test_real_historical_checkpoints_and_unused_suffix():
 
 def test_kernel_contract_failure_is_not_a_negative_puzzle_result():
     from dataclasses import replace
-    from puzzleops.catalog import REGISTRY
+    from polya.catalog import REGISTRY
     bad=replace(REGISTRY['encoding.symbol_map'],kernel=lambda **kwargs:{'text':'bad'})
     with patch.dict(REGISTRY,{'encoding.symbol_map':bad}):
         with pytest.raises(RuntimeError,match='output contract'):

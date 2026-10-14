@@ -42,7 +42,7 @@ network, wallet, or filesystem browsing tools.
   against known test targets after learning.
 - Cross-family synthetic examples with explicit expected results.
 - Original primitive/table/crypto/cache tests and actual stdio subprocess calls.
-- Polya/PuzzleOps namespace identity, CLI, README example, and MCP identity tests.
+- CLI and MCP identity tests.
 
 Optional CP-SAT/AALpy tests are real integrations, not mock substitutes. Local
 skips are not counted as passing; the dedicated CI job requires both dependencies.

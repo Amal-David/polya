@@ -112,7 +112,7 @@ def test_work_time_and_match_limits_preserve_unfinished_cursor():
     got = scan(plan=p, max_work=1)
     assert got['trials'] == [] and got['next_start'] == 0 and got['conclusion'] == 'INCONCLUSIVE'
     assert got['termination_reason'] == 'work_limit'
-    with patch('puzzleops.plans.time.monotonic', side_effect=[0, 100]):
+    with patch('polya.plans.time.monotonic', side_effect=[0, 100]):
         got = scan(plan=p)
     assert got['trials'] == [] and got['next_start'] == 0 and got['termination_reason'] == 'time_limit'
     got = scan(plan=p, max_matches=1)
@@ -149,7 +149,7 @@ def test_product_bound_before_execution():
 
 def test_kernel_contract_violation_is_not_a_negative_result():
     from dataclasses import replace
-    from puzzleops.catalog import REGISTRY
+    from polya.catalog import REGISTRY
     bad = replace(REGISTRY['bits.pack'], kernel=lambda **kwargs: {'hex': '00'})
     with patch.dict(REGISTRY, {'bits.pack': bad}):
         with pytest.raises(RuntimeError, match='output contract'):
@@ -177,13 +177,6 @@ def test_png_frontier_uses_agent_facing_plan_and_independent_byte_fixture():
     assert got['trials'] == [] and got['next_start'] == 0
     assert got['termination_reason'] == 'calibration_failed'
     assert got['conclusion'] == 'INCONCLUSIVE'
-
-
-def test_new_modules_are_shared_aliases():
-    import polya.plans, puzzleops.plans
-    import polya.bitstreams, puzzleops.bitstreams
-    assert polya.plans is puzzleops.plans
-    assert polya.bitstreams is puzzleops.bitstreams
 
 
 def test_png_coordinate_derivation_replays_against_original_samples():

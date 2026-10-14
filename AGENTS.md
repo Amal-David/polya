@@ -32,7 +32,7 @@ the distribution here is polya-puzzles and source installation is documented.
 
 ## Repository map
 
-- `puzzleops/`: shared implementation; `polya/` exposes aliases, not another engine.
+- `polya/`: the implementation package.
 - `catalog.py` and `extensions.py`: operation contracts, discovery, validation, receipts.
 - `model.py`, `symbolic.py`, `native_z3.py`, `cpsat_backend.py`: typed models and solvers.
 - `automata.py`, `learning.py`: deterministic machines and bounded active learning.
@@ -42,7 +42,7 @@ the distribution here is polya-puzzles and source installation is documented.
 
 ## Change rules
 
-Keep operation IDs and the Polya/PuzzleOps shared API compatible. Define a narrow
+Keep operation IDs and the public Polya API compatible. Define a narrow
 postcondition, typed input/output, applicability, and resource limits for each
 operation. Update the contract, tests, documentation, and version policy together.
 Never silently change byte encodings, Unicode units, overflow rules, normalization,

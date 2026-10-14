@@ -1,5 +1,5 @@
 import pytest
-from puzzleops.native_z3 import native_version
+from polya.native_z3 import native_version
 
 @pytest.mark.skipif(native_version() is None,reason='Cross-family integration demonstration requires Z3')
 def test_cross_family_demonstration():

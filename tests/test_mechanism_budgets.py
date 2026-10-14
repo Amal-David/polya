@@ -13,7 +13,7 @@ from examples.cryptic_demo import step
 def test_budget_counts_large_constants_not_only_bound_input(operation_id,bound,source,constants,output):
     from dataclasses import replace
     from unittest.mock import Mock
-    from puzzleops.catalog import REGISTRY
+    from polya.catalog import REGISTRY
     definition=step(operation_id, constants, input_field=bound, output_field=output,
                     rationale="Adversarial short parameter with large payload")
     args=dict(source=source, stages=[[definition]],

@@ -6,8 +6,8 @@ particular puzzle, reward type, or mandatory research workflow.
 
 ## Implemented layers
 
-1. **Python, CLI, MCP:** `polya` is the public facade over the shared `puzzleops`
-   implementation. Existing imports and operation IDs remain compatible.
+1. **Python, CLI, MCP:** `polya` is the public package. Operation IDs remain
+   compatible.
 2. **Operation contracts:** a searchable registry exposes strict Pydantic input
    schemas, output schemas, postconditions, limits, and cache policy. Callers
    inspect an operation before supplying inputs.

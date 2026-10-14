@@ -1,5 +1,4 @@
 """Independent byte fixtures, strict admission, and provenance for bitstreams."""
-import importlib
 from itertools import product
 
 import pytest
@@ -10,10 +9,6 @@ from polya.bitstreams import (MAX_BITS, MAX_SLICE_BYTES, InvertSpec, PackSpec,
                               pack_bits, slice_bytes, symbols_to_bits)
 from polya.catalog import _op, canonical_json
 from polya.cryptic import radix_bytes
-
-
-def test_module_is_shared():
-    assert importlib.import_module("polya.bitstreams") is importlib.import_module("puzzleops.bitstreams")
 
 
 @pytest.mark.parametrize("width", range(9))

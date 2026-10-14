@@ -4,8 +4,8 @@ import shutil
 import subprocess
 import unittest
 
-from puzzleops import run
-from puzzleops.crypto import bip39_seed, pkcs7_info
+from polya import run
+from polya.crypto import bip39_seed, pkcs7_info
 
 
 # First English vector, https://github.com/trezor/python-mnemonic/blob/master/vectors.json

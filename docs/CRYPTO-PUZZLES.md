@@ -17,7 +17,6 @@ state-machine traversal does not make an unknown AES password less unknown.
 | Recover constrained key slots or contradict periodic-key hypotheses from cribs | `cipher.periodic_cribs` |
 | Compare a finite product of complete decoding recipes without rewriting their common prefixes | `mechanism.scan` |
 
-The facade is `polya`; the existing implementation namespace is `puzzleops`.
 All eight operations use the existing contracts, receipts, CLI and MCP tools.
 No network service, wallet transaction, arbitrary code, or cipher backend chosen
 by executable strings has been added. Other runtime/worker/Rust APIs are unchanged.

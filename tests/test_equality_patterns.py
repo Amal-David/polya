@@ -24,9 +24,7 @@ def plan(raw=b'\x01\x02\x01', spec=None):
             'target': {'kind': 'equality_pattern', 'target': spec or target()}}
 
 
-def test_shared_alias_and_discovery_contract():
-    import polya.equality_patterns, puzzleops.equality_patterns
-    assert polya.equality_patterns is puzzleops.equality_patterns
+def test_discovery_contract():
     contract = find(operation_id='pattern.equality_check')
     assert contract['input_schema']['additionalProperties'] is False
     assert {'digest', 'representation'} <= set(contract['input_schema']['$defs']['EqualityPattern']['required'])
@@ -184,7 +182,7 @@ def test_plan_work_time_and_oversize_are_not_negatives():
     result = scan(plan=p, max_work=1)
     assert result['next_start'] == 0 and result['trials'] == []
     assert result['termination_reason'] == 'work_limit' and result['conclusion'] == 'INCONCLUSIVE'
-    with patch('puzzleops.plans.time.monotonic', side_effect=[0, 100]):
+    with patch('polya.plans.time.monotonic', side_effect=[0, 100]):
         result = scan(plan=p)
     assert result['next_start'] == 0 and result['trials'] == []
     assert result['termination_reason'] == 'time_limit'

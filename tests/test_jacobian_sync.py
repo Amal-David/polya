@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from scripts.sync_jacobian import snapshot, main
 
-PIN = Path(__file__).resolve().parents[1] / 'puzzleops/jacobian_pin.json'
+PIN = Path(__file__).resolve().parents[1] / 'polya/jacobian_pin.json'
 
 
 def payload(version='0.23.0',sha='a'*40):
