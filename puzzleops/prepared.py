@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from types import MappingProxyType
+from .runtime import freeze_mapping
 from typing import Mapping
 
 from .automata import Machine
@@ -71,7 +71,7 @@ def prepare_machine(machine: Machine | dict) -> PreparedMachine:
         emissions[i][j] = edge.output
     return PreparedMachine(model.kind, tuple(model.states), tuple(model.alphabet),
                            ids[model.initial], frozenset(ids[s] for s in model.accepting),
-                           MappingProxyType(symbols), tuple(map(tuple, targets)),
+                           freeze_mapping(symbols), tuple(map(tuple, targets)),
                            tuple(map(tuple, emissions)))
 
 

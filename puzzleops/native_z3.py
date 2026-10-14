@@ -9,6 +9,8 @@ import ctypes.util
 import importlib.util
 from pathlib import Path
 import re
+from threading import RLock
+from .runtime import UNSET
 from .model import bitvec, op
 
 
@@ -40,7 +42,7 @@ def require_supported_version(version: str) -> None:
         )
 
 
-def load_library():
+def _load_library_uncached():
     path=library_path()
     if not path: raise BackendUnavailable("Z3 is unavailable. Install the solvers extra from the source checkout.")
     try: lib=C.CDLL(path)
@@ -59,6 +61,38 @@ def load_library():
             raise BackendUnavailable('Installed libz3 lacks the supported C API') from exc
     require_supported_version(lib.Z3_get_full_version().decode())
     return lib
+
+
+
+_LIBRARY_LOCK = RLock()
+_LIBRARY = UNSET
+_LIBRARY_GENERATION = 0
+
+
+def load_library():
+    """Cache only successful loads; configure shared ctypes functions once."""
+    global _LIBRARY
+    with _LIBRARY_LOCK:
+        if _LIBRARY is UNSET:
+            _LIBRARY = _load_library_uncached()
+        return _LIBRARY
+
+
+def refresh_library():
+    """Forget discovery, not active contexts. Caller must quiesce worker calls.
+
+    Existing engines retain their own CDLL reference. This does not unload or
+    hot-swap a native binary; restart the process after replacing a loaded file.
+    """
+    global _LIBRARY, _LIBRARY_GENERATION
+    with _LIBRARY_LOCK:
+        _LIBRARY = UNSET
+        _LIBRARY_GENERATION += 1
+
+
+def library_generation():
+    with _LIBRARY_LOCK:
+        return _LIBRARY_GENERATION
 
 
 def native_version():
@@ -131,8 +165,8 @@ class Emitter:
         return f'({mapping[name]} '+ ' '.join(args)+')'
 
     def program(self,active):
-        # Set these on the SMT-LIB frontend as well as the context config:
-        # the frontend tracks whether get-unsat-core is enabled separately.
+        # The SMT-LIB command context also needs these options. The native
+        # configuration enables them before context creation for older Z3.
         out=['(set-option :print-success false)','(set-option :produce-models true)',
              '(set-option :produce-unsat-cores true)']
         for n,var in self.model.variables.items():
@@ -160,12 +194,16 @@ class Z3Engine:
         self.model,self.active,self.budget=model,active,budget
         self.emitter=Emitter(model)
         cfg=self.lib.Z3_mk_config()
+        if not cfg:
+            raise BackendUnavailable('Z3 could not allocate a configuration')
         try:
             self.lib.Z3_set_param_value(cfg,b'model',b'true')
             self.lib.Z3_set_param_value(cfg,b'unsat_core',b'true')
             self.ctx=self.lib.Z3_mk_context(cfg)
         finally:
             self.lib.Z3_del_config(cfg)
+        if not self.ctx:
+            raise BackendUnavailable('Z3 could not allocate a context')
         self.handler=C.CFUNCTYPE(None,C.c_void_p,C.c_uint)(self._error)
         self.lib.Z3_set_error_handler(self.ctx,self.handler)
         try: self.eval(self.emitter.program(active))

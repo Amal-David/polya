@@ -1,41 +1,140 @@
 name: Tests
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   core:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.11', '3.12', '3.13']
+        os: [ubuntu-latest]
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        include:
+          - os: windows-latest
+            python: '3.15'
+          - os: macos-latest
+            python: '3.15'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install -e '.[test]' 'z3-solver>=4.13,<5'
-      - run: python -m pytest -q --junitxml=core-tests.xml
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,z3,imaging]'
+      - run: python -m pip check
+      - run: python -m polya doctor
+      - run: python -m pytest -q -rs --junitxml=core-tests.xml
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: core-${{ matrix.os }}-${{ matrix.python }}
+          path: core-tests.xml
+  # OR-Tools has no compatible 3.15 distribution at the 2026-10-13 check.
+  # Full CP-SAT tests remain mandatory on the supported 3.12/3.14 stack.
   optional-integrations:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.14']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
-      - run: python -m pip install -e '.[test,solvers,learning]'
-      - name: Require optional packages rather than silently skipping
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,solvers,learning,imaging]'
+      - run: python -m pip check
+      - name: Require actual optional backends
         run: python -c 'import ortools, aalpy; from puzzleops.native_z3 import native_version; assert native_version()'
-      - run: python -m pytest -q --junitxml=full-tests.xml
+      - run: python -m pytest -q -rs --junitxml=full-tests.xml
       - run: python -m examples.structured_demo
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: optional-${{ matrix.python }}
+          path: full-tests.xml
+  learning-315:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,z3,learning,imaging]'
+      - run: python -m pip check
+      - name: Require AALpy and native Z3 on the actual 3.15 interpreter
+        run: python -c 'import sys,aalpy; from puzzleops.native_z3 import native_version; assert sys.version_info[:2] == (3,15); assert native_version()'
+      - run: python -m pytest -q -rs --junitxml=learning-tests.xml
+      - run: python -m examples.structured_demo
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: learning-3.15
+          path: learning-tests.xml
+  free-threaded:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15t'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[test,z3,imaging]'
+      - run: python -m pip check
+      - name: Verify the real build without forcing an unsafe extension override
+        run: python -c 'import sys,sysconfig; assert sys.version_info[:2] == (3,15); assert sysconfig.get_config_var("Py_GIL_DISABLED") == 1; assert not sys._is_gil_enabled()'
+      - run: python -m pytest -q -rs --junitxml=threaded-tests.xml
+      - run: python scripts/benchmark_runtime.py --repeats 3 --words 2000 --threads 4 --output threaded-benchmark.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: free-threaded-3.15
+          path: |
+            threaded-tests.xml
+            threaded-benchmark.json
+  installed-wheel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+      - run: python -m pip install --upgrade pip build
+      - run: python -m build
+      - run: python -m pip install '.[test,z3,imaging]'
+      - run: python -m pip install --force-reinstall --no-deps dist/*.whl
+      - name: Exercise the installed artifact, not the source checkout
+        run: |
+          python -I -m polya doctor
+          python -I -c 'from polya import run; r=run("symbolic.analyze",{"model":{"variables":{"x":{"values":[4]}}},"backend":"z3"})["result"]; assert r["forced_values"]=={"x":4}'
+      - run: python scripts/benchmark_runtime.py --repeats 3 --words 2000 --output runtime-benchmark.json
+      - run: python scripts/benchmark_runtime.py --repeats 1 --words 200 --profile runtime.prof --output instrumented.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python-315-wheel-and-benchmark
+          path: |
+            dist/*
+            runtime-benchmark.json
+            runtime.prof
   unsupported-z3-boundary:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - run: python -m pip install -e '.[test]' 'z3-solver==4.8.12.0'

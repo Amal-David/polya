@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/Amal-David/polya/actions/workflows/tests.yml"><img src="https://github.com/Amal-David/polya/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
-  <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11 or newer">
+  <img src="https://img.shields.io/badge/python-3.11%E2%80%933.15-blue" alt="Python 3.11 through 3.15">
 </p>
 
 Polya gives AI agents composable operations for cryptographic-puzzle decoding,
@@ -31,9 +31,9 @@ Start with [artifact-to-target experiments](docs/CRYPTO-FRONTIER.md) or
 withheld parameters in synthetic image-to-AES cases and reproduces a published
 GSMG checkpoint; it does not solve the final GSMG gate.
 
-Python 3.11+. The `imaging` extra provides lossless PNG sample-plane extraction;
-`solvers` and `learning` add optional symbolic/learning backends. Inspect actual
-availability with `polya run backends.inspect --json '{}'`.
+Python 3.11–3.15. Use `.[imaging,z3,learning]` on 3.15; CP-SAT currently requires
+a separate 3.14 environment with `.[solvers]`. Inspect actual interpreter and
+backend availability with `polya doctor` and `polya run backends.inspect --json '{}'`.
 Source installation is supported; this project has not been published to PyPI.
 
 ## Use from Python
@@ -74,7 +74,7 @@ outside the implementation. No agent-speedup or new open-puzzle solve is claimed
 
 ## Documentation
 
-[Crypto frontier](docs/CRYPTO-FRONTIER.md) · [Cipher recipes](docs/CRYPTO-PUZZLES.md) ·
+[Python support](docs/PYTHON-SUPPORT.md) · [Crypto frontier](docs/CRYPTO-FRONTIER.md) · [Cipher recipes](docs/CRYPTO-PUZZLES.md) ·
 [Quickstart](docs/QUICKSTART.md) · [Symbolic models](docs/SYMBOLIC.md) ·
 [Automata](docs/AUTOMATA.md) · [Architecture](docs/ARCHITECTURE.md) ·
 [Coverage](docs/HOLISTIC-COVERAGE.md) · [Validation](validation/POLYA-MIGRATION.md) ·
@@ -83,7 +83,7 @@ outside the implementation. No agent-speedup or new open-puzzle solve is claimed
 ## Development
 
 ```bash
-python -m pip install -e ".[test,imaging,solvers,learning]"
+python -m pip install -e ".[test,imaging,z3,learning]"
 python -m pytest -q
 python -m examples.crypto_frontier_demo
 ```

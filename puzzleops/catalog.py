@@ -9,9 +9,11 @@ from pathlib import Path
 import platform
 import re
 import unicodedata
+from threading import RLock
+from importlib import metadata
+from .runtime import execution_mode
 from typing import Callable, Literal
 
-import cryptography
 import pydantic
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
@@ -234,20 +236,32 @@ def _backend_versions():
 def _compute_implementation_fingerprint() -> str:
     """Bind receipts/cache to source and relevant runtime, including Unicode semantics."""
     digest = hashlib.sha256()
-    for path in sorted(Path(__file__).parent.glob("*.py")):
-        digest.update(path.name.encode("utf8")); digest.update(path.read_bytes())
+    digest.update(_SOURCE_SNAPSHOT)
     digest.update(canonical_json({"python": platform.python_version(), "package": __version__,
-                                "cryptography": cryptography.__version__, "pydantic": pydantic.__version__,
+                                "cryptography": metadata.version("cryptography"), "pydantic": pydantic.__version__,
                                 "unicode": unicodedata.unidata_version, "backends": _backend_versions()}).encode())
     return digest.hexdigest()
 
 
-_LOADED_FINGERPRINT = _compute_implementation_fingerprint()
+# Freeze source bytes now, not after a later on-disk edit. Native discovery is
+# deferred until an experiment requests a receipt.
+_SOURCE_SNAPSHOT = b"".join(path.name.encode("utf8") + b"\0" + path.read_bytes()
+                            for path in sorted(Path(__file__).parent.glob("*.py")))
+_FINGERPRINT_LOCK = RLock()
+_LOADED_FINGERPRINT = None
+_FINGERPRINT_GENERATION = None
 
 
 def implementation_fingerprint() -> str:
-    # Bind to the code loaded in this process, not a later edit of its source files.
-    return _LOADED_FINGERPRINT
+    global _LOADED_FINGERPRINT, _FINGERPRINT_GENERATION
+    from .native_z3 import library_generation
+    generation = library_generation()
+    with _FINGERPRINT_LOCK:
+        if _LOADED_FINGERPRINT is None or _FINGERPRINT_GENERATION != generation:
+            _LOADED_FINGERPRINT = _compute_implementation_fingerprint()
+            _FINGERPRINT_GENERATION = generation
+        base = _LOADED_FINGERPRINT
+    return hashlib.sha256((base + canonical_json(execution_mode())).encode("utf8")).hexdigest()
 
 
 def prepare(operation_id: str, inputs: dict):
@@ -260,7 +274,8 @@ def prepare(operation_id: str, inputs: dict):
     op = REGISTRY[operation_id]
     validated = op.request.model_validate(inputs).model_dump(mode="json")
     identity = {"operation_id": operation_id, "operation_version": op.version,
-                "implementation": implementation_fingerprint(), "inputs": validated}
+                "implementation": implementation_fingerprint(), "inputs": validated,
+                "runtime_mode": execution_mode()}
     key = hashlib.sha256(canonical_json(identity).encode()).hexdigest()
     return op, validated, identity, key
 
@@ -271,13 +286,26 @@ def execute_prepared(op, validated, identity, key):
         result = op.result.model_validate(result).model_dump(mode="json")
     if len(canonical_json(result).encode("utf8")) > 1_000_000:
         raise ValueError("result exceeds 1 MB output admission limit; reduce the requested scope")
+    # Lazy native imports may change interpreter mode during the kernel. These
+    # are boundary observations, not a claim of continuous process monitoring.
+    after = execution_mode()
+    final_fingerprint = (implementation_fingerprint()
+                         if after != identity["runtime_mode"] else identity["implementation"])
     return {"operation_id": op.operation_id, "result": result,
-            "receipt": make_receipt(op, validated, identity, key, result)}
+            "receipt": make_receipt(op, validated, identity, key, result,
+                                    runtime_after=after, final_fingerprint=final_fingerprint)}
 
 
-def make_receipt(op, validated, identity, key, result):
+def make_receipt(op, validated, identity, key, result, *, runtime_after=None, final_fingerprint=None):
     result_hash = hashlib.sha256(canonical_json(result).encode()).hexdigest()
-    return {"experiment_key": key, "implementation_fingerprint": identity["implementation"],
+    before = identity["runtime_mode"]
+    after = before if runtime_after is None else runtime_after
+    return {"experiment_key": key,
+                        "implementation_fingerprint": final_fingerprint or identity["implementation"],
+                        "preparation_implementation_fingerprint": identity["implementation"],
+                        "runtime_observations": {"before": before, "after": after,
+                                                 "changed": before != after,
+                                                 "scope": "Boundary samples, not continuous runtime monitoring."},
                         "operation_version": op.version, "inputs_sha256": hashlib.sha256(canonical_json(validated).encode()).hexdigest(),
                         "result_sha256": result_hash, "postcondition": op.postcondition,
                         "independently_reproduced": False,

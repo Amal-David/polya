@@ -3,6 +3,8 @@ import copy
 import hashlib
 import shutil
 import subprocess
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -23,10 +25,36 @@ def h(raw):
 def fixture(plain, password=b'synthetic-password', digest='sha256'):
     if not shutil.which('openssl'):
         pytest.skip('independent OpenSSL fixture producer is not installed')
-    # Passwords for this fixture producer are printable synthetic test data.
-    output = subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-salt', '-md', digest,
-        '-pass', 'stdin'], input=password + b'\n' + plain, capture_output=True, timeout=10, check=True).stdout
-    return output.hex()
+    # Keep the password stream separate from binary plaintext. OpenSSL's
+    # Windows stdio handling of -pass stdin can translate newlines or treat
+    # control-Z as EOF. Explicit binary input/output files avoid that boundary.
+    if any(c in password for c in (b"\n", b"\r", b"\0")):
+        raise ValueError("fixture password must be a single printable line")
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        source, encrypted, recovered = (root / n for n in ("plain.bin", "cipher.bin", "recovered.bin"))
+        password_file = root / "password.txt"
+        source.write_bytes(plain)
+        password_file.write_bytes(password + b"\n")
+        base = ['openssl', 'enc', '-aes-256-cbc', '-md', digest,
+                '-pass', 'file:' + str(password_file)]
+        subprocess.run(base + ['-salt', '-in', str(source), '-out', str(encrypted)],
+                       capture_output=True, timeout=10, check=True)
+        # Validate the independent producer itself before using its fixture.
+        subprocess.run(base + ['-d', '-in', str(encrypted), '-out', str(recovered)],
+                       capture_output=True, timeout=10, check=True)
+        assert recovered.read_bytes() == plain, "OpenSSL fixture changed binary input"
+        return encrypted.read_bytes().hex()
+
+
+@pytest.mark.parametrize('digest', ['md5', 'sha256'])
+def test_independent_fixture_preserves_all_byte_values(digest):
+    from polya.crypto import openssl_decrypt
+    raw = bytes(range(256)) + b"\r\n\x1a\0\xff"
+    blob = fixture(raw, digest=digest)
+    decoded = openssl_decrypt(blob, b'synthetic-password'.hex(), digest)
+    assert decoded['padding_valid']
+    assert bytes.fromhex(decoded['plaintext_hex']) == raw
 
 
 def make_spec(digest='sha256', mode='raw'):

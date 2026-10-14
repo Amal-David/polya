@@ -11,7 +11,7 @@ import polya
 def test_public_api_identity():
     assert polya.find is puzzleops.find
     assert polya.run is puzzleops.run
-    assert polya.__version__ == puzzleops.__version__ == "0.2.1"
+    assert polya.__version__ == puzzleops.__version__ == "0.2.2"
 
 
 def test_every_module_is_shared():
@@ -42,4 +42,4 @@ def test_polya_mcp_identity():
     from polya.mcp_server import Server
     reply = Server().handle({"jsonrpc": "2.0", "id": 1, "method": "initialize",
                              "params": {"protocolVersion": "2025-06-18"}})
-    assert reply["result"]["serverInfo"] == {"name": "polya", "version": "0.2.1"}
+    assert reply["result"]["serverInfo"] == {"name": "polya", "version": "0.2.2"}
