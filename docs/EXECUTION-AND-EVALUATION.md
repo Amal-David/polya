@@ -82,6 +82,15 @@ truncating its tail. Limits: 10,000 events, 32 dependencies per event, 64-KiB
 payloads. This prototype reads history on append; benchmark large histories
 before relying on it for high-throughput logging.
 
+### Execution-backed plan coverage
+
+The opt-in `Ledger.run(operation_id, inputs, dependencies=...)` executes and
+records receipt-linked evidence. For `mechanism.plan_scan`, `plan_coverage(plan_id)`
+recovers actual prior terminal coverage across processes, showing gaps, overlaps,
+invalid/unresolved inputs and retracted dependencies. Generic appended claims
+cannot become execution coverage. Plans/source bytes are not persisted: retain
+those separately. See [typed-plan contracts and restart examples](TYPED-PLANS.md).
+
 ## Cross-family agent evaluation
 
 ```bash

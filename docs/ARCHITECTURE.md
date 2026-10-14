@@ -19,7 +19,11 @@ particular puzzle, reward type, or mandatory research workflow.
    native and optional AALpy learning.
 5. **Results and receipts:** scope, status, budgets, source/runtime fingerprints,
    and input/output hashes. SAT witnesses are independently interpreted in Python.
-6. **Optional sessions:** a local SQLite exact-request cache, separate from
+6. **Typed plans and optional history:** bounded artifact/symbol/bit/byte references
+   compose existing kernels into exact target checks. Plan identity protects
+   resumption. `Ledger.run` links actual receipts to compact coverage, and restart
+   queries reconcile gaps, overlaps and retractions. See [typed plans](TYPED-PLANS.md).
+7. **Optional sessions:** a local SQLite exact-request cache, separate from
    stateless operations. Budget-dependent operations bypass it.
 
 ## Trust boundaries
@@ -47,8 +51,9 @@ agent context. These broader representations are not implemented in 0.2.1.
 
 Further candidate operations should support streaming transformations, explicit
 normalization, stable enumeration, dependency-aware reuse, and separately checked
-acceptance conditions. Persistent hypothesis graphs, retraction propagation,
-learned operation selection, MaxSAT, and passive automata learning remain proposals.
+acceptance conditions. Generic hypothesis events and retraction propagation are available in the optional
+local ledger. Dependency-safe symbolic deduction reuse, learned operation selection,
+MaxSAT, and passive automata learning remain proposals.
 
 The performance direction is Python-facing APIs over mature native backends,
 with optional Rust kernels for measured bottlenecks. Do not replace a solver

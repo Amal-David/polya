@@ -1,8 +1,0 @@
-{
-  "repository": "morluto/jacobian",
-  "ref": "main",
-  "sha": "9dc2aaf6efe8803f1c501e2972f741dd94962c32",
-  "integration": "separate jacobian-mcp process",
-  "python": "3.12",
-  "auto_merge": false
-}

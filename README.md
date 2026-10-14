@@ -49,6 +49,14 @@ result = run("cipher.polyalphabetic", {
 assert result["text"] == "ATTACKATDAWN"
 ```
 
+## Optional mathematics through Jacobian
+
+Polya can discover and invoke [Jacobian](https://github.com/morluto/jacobian)
+math operations when a puzzle needs exact number theory, graph algorithms,
+linear algebra, combinatorics or proof checks. The two runtimes remain isolated
+(Python 3.15 and Jacobian 3.12); there is no mandatory Jacobian dependency.
+See [installation, delegation and weekly upstream sync](docs/JACOBIAN.md).
+
 ## Use with agents
 
 Run `polya mcp` or `python -m polya mcp` as a local stdio server.
@@ -62,7 +70,7 @@ It exposes **`puzzle.find`** to discover or inspect an operation and
 | --- | --- |
 | Image evidence | Lossless PNG channel/bit selection, source hashes and pixel coordinates |
 | Cryptic decoding | Bifid, Vigenere/Beaufort, checkerboards, explicit alphabets and radix conventions |
-| Mechanism search | Finite recipe products, shared intermediates, source-labelled cribs, scoped checkpoints |
+| Mechanism search | Typed artifact-to-target plans, bound resume IDs, explicit losses and shared intermediates |
 | Crypto targets | Calibrated multi-lock scans, exact SHA256/P2PKH checks, binary-safe readings and bound resume IDs |
 | Constraints | Z3 and CP-SAT adapters, finite reference solver, answer uniqueness, forced values |
 | Automata | Sequence rules, batched replay, shortest distinguishing inputs, bounded active learning |
@@ -74,7 +82,7 @@ outside the implementation. No agent-speedup or new open-puzzle solve is claimed
 
 ## Documentation
 
-[Python support](docs/PYTHON-SUPPORT.md) · [Crypto frontier](docs/CRYPTO-FRONTIER.md) · [Cipher recipes](docs/CRYPTO-PUZZLES.md) ·
+[Typed plans](docs/TYPED-PLANS.md) · [Python support](docs/PYTHON-SUPPORT.md) · [Crypto frontier](docs/CRYPTO-FRONTIER.md) · [Cipher recipes](docs/CRYPTO-PUZZLES.md) ·
 [Quickstart](docs/QUICKSTART.md) · [Symbolic models](docs/SYMBOLIC.md) ·
 [Automata](docs/AUTOMATA.md) · [Architecture](docs/ARCHITECTURE.md) ·
 [Coverage](docs/HOLISTIC-COVERAGE.md) · [Validation](validation/POLYA-MIGRATION.md) ·

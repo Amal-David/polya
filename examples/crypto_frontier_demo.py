@@ -13,43 +13,53 @@ from polya import run
 DATA = Path(__file__).with_name('data')
 
 
-def extract_candidates(png_base64: str) -> list[dict]:
-    candidates = []
-    for channel in ('R', 'G', 'B'):
-        for bit in (0, 1):
-            plane = run('artifact.png_bitplane', {'png_base64': png_base64,
-                'channel': channel, 'bit': bit})['result']
-            for order in ('row', 'column', 'row_snake', 'column_snake'):
-                for reverse in (False, True):
-                    bits = run('grid.read', {'text': plane['text'], 'rows': plane['height'],
-                        'columns': plane['width'], 'order': order, 'reverse': reverse})['result']['text']
-                    if len(bits) % 8:
-                        raise ValueError('this demonstration requires whole bytes; no tail is discarded')
-                    for invert in (False, True):
-                        transformed = bits.translate(str.maketrans('01', '10')) if invert else bits
-                        for lsb in (False, True):
-                            groups = [transformed[i:i+8] for i in range(0,len(transformed),8)]
-                            raw = bytes(int(group[::-1] if lsb else group, 2) for group in groups)
-                            name = f'{channel}.b{bit}.{order}.rev{int(reverse)}.inv{int(invert)}.lsb{int(lsb)}'
-                            candidates.append({'id': name, 'value_hex': raw.hex(),
-                                'source': 'PNG SHA256 '+plane['source_sha256']+'; explicit recipe '+name})
-    return candidates
+def frontier_plan(png_base64: str, lock: dict) -> dict:
+    """Declare the supplied grammar; no candidate extraction/search loop lives here."""
+    def ref(node, field):
+        return {'node': node, 'field': field}
+
+    def step(operation_id, bindings, inputs, rationale):
+        return {'operation_id': operation_id, 'bindings': bindings,
+                'inputs': inputs, 'rationale': rationale}
+
+    return {
+        'sources': [{'id': 'image', 'kind': 'png', 'value': png_base64,
+                     'source': 'synthetic raw PNG fixture'}],
+        'nodes': [
+            {'id': 'plane', 'alternatives': [
+                step('artifact.png_bitplane', {'png_base64': ref('image', 'value')},
+                     {'channel': channel, 'bit': bit, 'max_pixels': 65536}, 'declared sample plane')
+                for channel in ('R', 'G', 'B') for bit in (0, 1)]},
+            {'id': 'route', 'alternatives': [
+                step('grid.read', {'text': ref('plane', 'text'), 'rows': ref('plane', 'height'),
+                                  'columns': ref('plane', 'width')},
+                     {'order': order, 'reverse': reverse}, 'declared grid permutation')
+                for order in ('row', 'column', 'row_snake', 'column_snake') for reverse in (False, True)]},
+            {'id': 'polarity', 'alternatives': [
+                step('bits.invert', {'text': ref('route', 'text')}, {'invert': invert}, 'declared bit polarity')
+                for invert in (False, True)]},
+            {'id': 'packed', 'alternatives': [
+                step('bits.pack', {'text': ref('polarity', 'text')},
+                     {'bit_order': order, 'tail': 'reject'}, 'whole bytes, no implicit tail loss')
+                for order in ('msb', 'lsb')]},
+        ],
+        'candidate': ref('packed', 'hex'),
+        'target': {'kind': 'openssl', 'lock': lock},
+    }
 
 
 def main() -> dict:
     cases = json.loads((DATA/'crypto-hidden-parameters.json').read_text())
     outputs = []
     for case in cases:
-        candidates = extract_candidates(case['png_base64'])
-        result = run('crypto.openssl_scan', {'candidates': candidates, 'locks': [case['lock']]})['result']
+        result = run('mechanism.plan_scan', {'plan': frontier_plan(case['png_base64'], case['lock'])})['result']
         assert result['complete'] and result['matches']
-        distinct_matches = {c['value_hex'] for c in candidates
-                            if c['id'] in {r['candidate_id'] for r in result['matches']}}
-        assert len(distinct_matches) == 1
-        outputs.append({'case': case['id'], 'candidate_programs': len(candidates),
-            'unique_candidate_bytes': len({c['value_hex'] for c in candidates}),
-            'matching_programs': [r['candidate_id'] for r in result['matches']],
-            'crypto_calls': result['crypto_calls'], 'complete': result['complete']})
+        assert len({row['candidate_hex'] for row in result['matches']}) == 1
+        outputs.append({'case': case['id'], 'candidate_programs': result['recipe_count'],
+            'unique_candidate_bytes': len({row['candidate_sha256'] for row in result['trials']}),
+            'matching_programs': [row['choices'] for row in result['matches']],
+            'plan_id': result['plan_id'], 'kernel_calls': result['kernel_calls'],
+            'complete': result['complete']})
     control = json.loads((DATA/'gsmg-phase2-control.json').read_text())
     result = run('crypto.openssl_scan', {'candidates': [
         {'id': 'published-phase2-answer', 'value_hex': control['candidate_hex'], 'source': control['source']}],

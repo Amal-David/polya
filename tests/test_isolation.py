@@ -67,3 +67,14 @@ def test_bad_limits_and_unregistered_scripts_rejected():
     for kw in ({'wall_ms':True},{'memory_mb':1},{'cpu_seconds':0}):
         with pytest.raises(ValueError): Limits(**kw)
     with pytest.raises(ValueError): run_isolated('shell',{'command':'echo nope'})
+
+
+@pytest.mark.skipif(sys.platform=="win32", reason="POSIX process-group fallback")
+def test_process_group_permission_denial_falls_back_to_child_kill():
+    from unittest.mock import Mock
+    from polya.isolation import _kill
+    process=Mock(pid=12345)
+    process.poll.return_value=None
+    with patch('puzzleops.isolation.os.killpg', side_effect=PermissionError('restricted')):
+        _kill(process)
+    process.kill.assert_called_once_with()
