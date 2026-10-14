@@ -33,7 +33,8 @@ _RUN = "math.run"
 _STATUS = Literal["OK", "UNAVAILABLE", "VERSION_MISMATCH", "TIMEOUT", "PROTOCOL_ERROR", "UPSTREAM_ERROR"]
 _SCOPE = ("Upstream Jacobian result for the supplied mathematical payload only; "
           "not proof of the original puzzle interpretation, an independent Polya check, "
-          "or permission to execute outside this local Jacobian runtime.")
+          "or permission to execute outside this local Jacobian runtime. "
+          "POSIX cleanup covers the MCP process group, not upstream workers that start separate sessions.")
 
 
 # Keep the runtime and its receipt fingerprint on the same loaded pin. A
@@ -62,34 +63,66 @@ class _BridgeFailure(Exception):
         super().__init__(message)
 
 
-def _read_messages(stream, inbox: queue.Queue) -> None:
+def _read_messages(stream, inbox: queue.Queue, stopped: threading.Event) -> None:
+    def publish(kind, value):
+        while not stopped.is_set():
+            try:
+                inbox.put((kind, value), timeout=0.05)
+                return True
+            except queue.Full:
+                continue
+        return False
+
     try:
-        while True:
+        while not stopped.is_set():
             line = stream.readline(_MAX_LINE + 1)
             if not line:
-                inbox.put(("EOF", None))
+                publish("EOF", None)
                 return
             if len(line) > _MAX_LINE or not line.endswith(b"\n"):
-                inbox.put(("OVERSIZE", None))
+                publish("OVERSIZE", None)
                 return
             try:
                 value = json.loads(line)
             except (UnicodeDecodeError, ValueError):
-                inbox.put(("INVALID", None))
+                publish("INVALID", None)
                 return
-            inbox.put(("DATA", value))
+            if not publish("DATA", value):
+                return
     except (OSError, ValueError):
-        inbox.put(("EOF", None))
+        publish("EOF", None)
 
 
-def _send(proc: subprocess.Popen, payload: dict) -> None:
+def _send(proc: subprocess.Popen, payload: dict, deadline: float, writers: list,
+          fully_written: threading.Event | None = None) -> None:
     data = json.dumps(payload, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode("utf-8")
     if len(data) > _MAX_INPUT:
         raise _BridgeFailure("PROTOCOL_ERROR", "Jacobian request exceeds the bridge input limit")
-    try:
-        proc.stdin.write(data + b"\n")
-        proc.stdin.flush()
-    except (BrokenPipeError, OSError, ValueError):
+    finished = threading.Event()
+    errors = []
+
+    def write_all():
+        try:
+            pending = memoryview(data + b"\n")
+            while pending:
+                written = proc.stdin.write(pending)
+                if not written:
+                    raise OSError("Jacobian input pipe made no progress")
+                pending = pending[written:]
+            if fully_written is not None:
+                fully_written.set()
+            proc.stdin.flush()
+        except (BrokenPipeError, OSError, ValueError) as exc:
+            errors.append(exc)
+        finally:
+            finished.set()
+
+    writer = threading.Thread(target=write_all, name="polya-jacobian-writer", daemon=True)
+    writers.append(writer)
+    writer.start()
+    if not finished.wait(max(0, deadline - time.monotonic())):
+        raise _BridgeFailure("TIMEOUT", "Jacobian bridge deadline exceeded while sending request")
+    if errors:
         raise _BridgeFailure("UPSTREAM_ERROR", "Jacobian process closed before receiving request") from None
 
 
@@ -120,7 +153,7 @@ def _receive(inbox: queue.Queue, expected_id: int, deadline: float) -> dict:
         return result
 
 
-def _project(result: dict, tool: str) -> dict:
+def _project(result: dict, tool: str, operation_id: str | None = None) -> dict:
     if result.get("isError") is True:
         # Preserve Jacobian's typed admission/backend/timeout error diagnostics,
         # but they are NOT mathematical results and have no verified status.
@@ -155,20 +188,19 @@ def _project(result: dict, tool: str) -> dict:
     if tool == _RUN and (not isinstance(projected.get("output"), dict)
                          or not isinstance(projected.get("operation_id"), str)):
         raise _BridgeFailure("PROTOCOL_ERROR", "Unexpected Jacobian math.run result")
+    if tool == _RUN and projected["operation_id"] != operation_id:
+        raise _BridgeFailure("PROTOCOL_ERROR", "Jacobian result operation does not match the requested operation")
     return {"status": "OK", "data": projected, "error": None}
 
 
 def _stop(proc: subprocess.Popen) -> None:
-    """Reap the host AND its workers after a response, deadline, or error.
+    """Reap the MCP host and terminate its supervised process group/job.
 
-    The Unix host has a private session. The Windows supervisor owns the last
-    handle to its kill-on-close Job Object, including already-orphaned workers.
-    The operator-installed Jacobian runtime is trusted, but an unresponsive
-    backend must not silently leave long-running solver workers behind.
+    POSIX workers that start separate sessions are outside this process group;
+    their cleanup depends on upstream cooperative cancellation. The Windows
+    supervisor owns the last handle to its kill-on-close Job Object, including
+    already-orphaned workers. Neither mode is a security sandbox.
     """
-    if proc.stdin:
-        try: proc.stdin.close()
-        except OSError: pass
     if os.name == "posix":
         try:
             os.killpg(proc.pid, signal.SIGKILL)
@@ -186,6 +218,11 @@ def _stop(proc: subprocess.Popen) -> None:
     try: proc.wait(timeout=2)
     except subprocess.TimeoutExpired:
         pass
+    # Kill first: a blocked Windows pipe write can hold the CRT descriptor
+    # lock needed by close(). Closing before termination can deadlock cleanup.
+    if proc.stdin:
+        try: proc.stdin.close()
+        except OSError: pass
     if proc.stdout:
         try: proc.stdout.close()
         except OSError: pass
@@ -201,8 +238,15 @@ def _bridge(tool: str, arguments: dict, timeout_ms: int) -> dict:
         answer["error"] = {"message": "Install Jacobian in its own Python 3.12 runtime and provide POLYA_JACOBIAN_MCP or a jacobian-mcp executable on PATH"}
         return answer
     started = time.monotonic()
-    deadline = started + timeout_ms / 1000
+    hard_deadline = started + timeout_ms / 1000
+    cancel_grace = min(0.5, timeout_ms / 10000)
+    deadline = hard_deadline - cancel_grace
     proc = None
+    writers = []
+    stopped = threading.Event()
+    reader = None
+    tool_sent = threading.Event()
+    tool_finished = False
     try:
         command = [executable]
         if os.name == "nt":
@@ -213,29 +257,57 @@ def _bridge(tool: str, arguments: dict, timeout_ms: int) -> dict:
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                 bufsize=0, close_fds=True, start_new_session=os.name=="posix")
         inbox: queue.Queue = queue.Queue(maxsize=32)  # Bounds noisy upstream notifications.
-        reader = threading.Thread(target=_read_messages, args=(proc.stdout, inbox), daemon=True)
+        reader = threading.Thread(target=_read_messages, args=(proc.stdout, inbox, stopped),
+                                  name="polya-jacobian-reader", daemon=True)
         reader.start()
         _send(proc, {"jsonrpc":"2.0", "id":1, "method":"initialize",
                      "params":{"protocolVersion":"2025-06-18", "capabilities":{},
-                               "clientInfo":{"name":"polya", "version":"0.2.2"}}})
+                               "clientInfo":{"name":"polya", "version":"0.2.2"}}}, deadline, writers)
         initialized = _receive(inbox, 1, deadline)
         info = initialized.get("serverInfo")
         if not isinstance(info, dict) or info.get("name") != "jacobian":
             raise _BridgeFailure("PROTOCOL_ERROR", "Wrong MCP server identity: expected Jacobian")
         if info.get("version") != expected:
             raise _BridgeFailure("VERSION_MISMATCH", "Jacobian version differs from the reviewed pin")
-        _send(proc, {"jsonrpc":"2.0", "method":"notifications/initialized"})
+        _send(proc, {"jsonrpc":"2.0", "method":"notifications/initialized"}, deadline, writers)
         _send(proc, {"jsonrpc":"2.0", "id":2, "method":"tools/call",
-                     "params":{"name":tool, "arguments":arguments}})
-        outcome = _project(_receive(inbox, 2, deadline), tool)
+                     "params":{"name":tool, "arguments":arguments}}, deadline, writers, tool_sent)
+        response = _receive(inbox, 2, deadline)
+        tool_finished = True
+        outcome = _project(response, tool, arguments.get("operation_id"))
         answer.update(outcome)
     except _BridgeFailure as exc:
         answer.update(status=exc.status, error={"message": str(exc)})
     except (OSError, ValueError, TypeError, subprocess.SubprocessError):
         answer.update(status="UNAVAILABLE", error={"message":"Unable to start or communicate with Jacobian"})
     finally:
-        if proc is not None:
-            _stop(proc)
+        # Jacobian owns solver groups created in new sessions. Give its
+        # cooperative cancellation path a bounded chance to reap them before
+        # terminating the MCP host. This is not hard detached-worker containment.
+        try:
+            if proc is not None and tool_sent.is_set() and not tool_finished:
+                cleanup_deadline = min(hard_deadline, time.monotonic() + cancel_grace)
+                try:
+                    _send(proc, {'jsonrpc':'2.0', 'method':'notifications/cancelled',
+                                 'params':{'requestId':2, 'reason':'Polya bridge stopped the request'}},
+                          cleanup_deadline, writers)
+                    _receive(inbox, 2, cleanup_deadline)
+                except (_BridgeFailure, OSError, ValueError, RuntimeError):
+                    pass  # Preserve the original operational outcome.
+                # A cancellation response can precede upstream worker-thread
+                # teardown; it is not an acknowledgement that children reaped.
+                time.sleep(max(0, cleanup_deadline - time.monotonic()))
+        finally:
+            stopped.set()
+            try:
+                if proc is not None:
+                    _stop(proc)
+            finally:
+                if reader is not None and reader.ident is not None:
+                    reader.join(timeout=1)
+                for writer in writers:
+                    if writer.ident is not None:
+                        writer.join(timeout=1)
     return answer
 
 

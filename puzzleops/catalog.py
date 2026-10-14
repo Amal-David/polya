@@ -199,6 +199,8 @@ OPS.extend(target_ops(_op))
 OPS.extend(png_ops(_op))
 from .jacobian_bridge import operations as jacobian_ops
 OPS.extend(jacobian_ops(_op))
+from .proposals import operations as proposal_ops
+OPS.extend(proposal_ops(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 
 

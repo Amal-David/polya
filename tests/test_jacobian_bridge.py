@@ -23,6 +23,7 @@ from polya.jacobian_bridge import find_math, inspect_runtime, pin, run_math
 MOCK = '''#!{python}
 import json, os, subprocess, sys, time
 mode=os.environ.get('FAKE_JACOBIAN_MODE','ok')
+cancel_child=None
 for raw in sys.stdin.buffer:
     req=json.loads(raw)
     if req.get('method')=='initialize':
@@ -33,8 +34,21 @@ for raw in sys.stdin.buffer:
            'serverInfo':{{'name':name,'version':version}},'capabilities':{{'tools':{{}}}}}}}}
     elif req.get('method')=='notifications/initialized':
         continue
+    elif req.get('method')=='notifications/cancelled':
+        if cancel_child is not None:
+            if mode=='early_cancel_ack':
+                print(json.dumps({{'jsonrpc':'2.0','id':2,'error':{{'code':-32800,'message':'cancelled'}}}}), flush=True)
+                time.sleep(0.1)
+            cancel_child.kill(); cancel_child.wait()
+            with open(os.environ['FAKE_JACOBIAN_CANCELLED'], 'w') as marker: marker.write('reaped')
+            print(json.dumps({{'jsonrpc':'2.0','id':2,'error':{{'code':-32800,'message':'cancelled'}}}}), flush=True)
+        continue
     elif req.get('method')=='tools/call':
         tool=req['params']['name'];args=req['params']['arguments']
+        if mode in ('cooperative_cancel', 'early_cancel_ack'):
+            cancel_child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)'], start_new_session=os.name=='posix')
+            with open(os.environ['FAKE_JACOBIAN_CHILD'], 'w') as marker: marker.write(str(cancel_child.pid))
+            continue
         if mode.startswith('tree_'):
             child_code = ('import os, pathlib, signal, sys, time; '
                           'signal.signal(signal.SIGTERM, signal.SIG_IGN); '
@@ -60,6 +74,7 @@ for raw in sys.stdin.buffer:
                  'text':json.dumps(data)}}],'structuredContent':data}}}}
         else:
             data={{'operation_id':args['operation_id'],'runtime_ms':10,'output':{{'gcd':'6'}}}}
+            if mode=='wrong_operation': data['operation_id']='integer.compute.lcm'
             result={{'jsonrpc':'2.0','id':2,'result':{{'content':[{{'type':'text',
                  'text':json.dumps(data)}}],'structuredContent':data, 'isError':False}}}}
         if mode=='bad_output': result['result']['structuredContent']={{'unexpected':True}}
@@ -67,7 +82,15 @@ for raw in sys.stdin.buffer:
         continue
     if mode=='oversize' and req.get('id')==2:
         sys.stdout.write('x'*1100001+'\\n');sys.stdout.flush();continue
+    if mode=='notify_forever' and req.get('id')==2:
+        while True:
+            print(json.dumps({{'jsonrpc':'2.0','method':'notifications/progress','params':{{'data':'x'*2000}}}}), flush=True)
     sys.stdout.write(json.dumps(result,separators=(',',':'))+'\\n');sys.stdout.flush()
+    if mode=='notify_after' and req.get('id')==2:
+        for _ in range(100):
+            print(json.dumps({{'jsonrpc':'2.0','method':'notifications/progress','params':{{'data':'x'*2000}}}}), flush=True)
+        time.sleep(60)
+    if mode=='stop_reading' and req.get('id')==1: time.sleep(60)
 '''
 
 
@@ -144,6 +167,12 @@ def test_broken_projected_output_not_accepted(fake_backend, monkeypatch):
     assert run_math('integer.compute.extended_gcd',{})['status']=='PROTOCOL_ERROR'
 
 
+def test_result_must_belong_to_requested_math_operation(fake_backend, monkeypatch):
+    monkeypatch.setenv('FAKE_JACOBIAN_MODE', 'wrong_operation')
+    outcome = run_math('integer.compute.extended_gcd', {'left': '84', 'right': '30'})
+    assert outcome['status'] == 'PROTOCOL_ERROR' and outcome['data'] is None
+
+
 def test_oversize_host_output_is_not_truncated_into_a_result(fake_backend, monkeypatch):
     monkeypatch.setenv('FAKE_JACOBIAN_MODE','oversize')
     out=find_math(query='gcd')
@@ -156,6 +185,126 @@ def test_kill_hung_upstream(fake_backend, monkeypatch):
     result=find_math(query='gcd',timeout_ms=1000)
     assert result['status']=='TIMEOUT' and result['data'] is None
     assert time.monotonic()-begin<4
+
+
+def test_deadline_covers_large_request_to_initialized_nonreader(fake_backend, monkeypatch):
+    import threading
+    monkeypatch.setenv('FAKE_JACOBIAN_MODE', 'stop_reading')
+    begin = time.monotonic()
+    result = run_math('integer.compute.extended_gcd', {'large': 'x' * 400000}, timeout_ms=1000)
+    assert result['status'] == 'TIMEOUT' and result['data'] is None
+    assert time.monotonic() - begin < 5
+    assert not any(t.name == 'polya-jacobian-writer' and t.is_alive() for t in threading.enumerate())
+
+
+def test_request_writer_completes_partial_writes():
+    from types import SimpleNamespace
+    from puzzleops.jacobian_bridge import _send
+    received = bytearray()
+
+    class ShortWrites:
+        def write(self, part):
+            received.extend(part[:3])
+            return min(3, len(part))
+
+        def flush(self):
+            pass
+
+    writers = []
+    _send(SimpleNamespace(stdin=ShortWrites()), {'jsonrpc': '2.0', 'id': 7}, time.monotonic() + 1, writers)
+    assert json.loads(received) == {'jsonrpc': '2.0', 'id': 7}
+    assert received.endswith(b'\n')
+    for writer in writers:
+        writer.join(timeout=1)
+
+
+def test_cleanup_kills_before_closing_a_possibly_blocked_input():
+    from unittest.mock import Mock
+    from puzzleops import jacobian_bridge
+    events = []
+    process = Mock(pid=12345)
+    process.poll.return_value = None
+    process.kill.side_effect = lambda: events.append('kill')
+    process.stdin.close.side_effect = lambda: events.append('close_input')
+    with patch.object(jacobian_bridge.os, 'name', 'nt'):
+        jacobian_bridge._stop(process)
+    assert events.index('kill') < events.index('close_input')
+
+
+@pytest.mark.parametrize('failure', [0, BrokenPipeError('closed')])
+def test_request_writer_rejects_stalled_or_closed_pipe(failure):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from puzzleops.jacobian_bridge import _send, _BridgeFailure
+    stream = Mock()
+    if isinstance(failure, Exception):
+        stream.write.side_effect = failure
+    else:
+        stream.write.return_value = failure
+    writers = []
+    with pytest.raises(_BridgeFailure) as error:
+        _send(SimpleNamespace(stdin=stream), {'id': 1}, time.monotonic() + 1, writers)
+    assert error.value.status == 'UPSTREAM_ERROR'
+    for writer in writers:
+        writer.join(timeout=1)
+
+
+@pytest.mark.parametrize('mode, expected', [('notify_after', 'OK'), ('notify_forever', 'TIMEOUT')])
+def test_no_reader_survives_notifications_after_result_or_deadline(fake_backend, monkeypatch, mode, expected):
+    import threading
+    monkeypatch.setenv('FAKE_JACOBIAN_MODE', mode)
+    for _ in range(2):
+        result = find_math(query='gcd', timeout_ms=1000)
+        assert result['status'] == expected
+        assert not any(t.name == 'polya-jacobian-reader' and t.is_alive() for t in threading.enumerate())
+
+
+@pytest.mark.parametrize('mode', ['cooperative_cancel', 'early_cancel_ack'])
+def test_cooperative_cancel_reaps_detached_worker_within_total_budget(fake_backend, monkeypatch, tmp_path, mode):
+    marker = tmp_path / 'detached.pid'
+    cancelled = tmp_path / 'cancelled'
+    monkeypatch.setenv('FAKE_JACOBIAN_MODE', mode)
+    monkeypatch.setenv('FAKE_JACOBIAN_CHILD', str(marker))
+    monkeypatch.setenv('FAKE_JACOBIAN_CANCELLED', str(cancelled))
+    begin = time.monotonic()
+    try:
+        outcome = find_math(query='gcd', timeout_ms=3000)
+        assert outcome['status'] == 'TIMEOUT' and outcome['data'] is None
+        assert time.monotonic() - begin < 5
+        assert cancelled.read_text() == 'reaped'
+        assert not _process_running(int(marker.read_text()))
+    finally:
+        if marker.exists():
+            pid = int(marker.read_text())
+            if _process_running(pid):
+                if os.name == 'nt':
+                    subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'], check=False,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    os.kill(pid, signal.SIGKILL)
+
+
+def test_reader_can_cancel_while_notification_queue_is_full():
+    import io
+    import queue
+    import threading
+    from puzzleops.jacobian_bridge import _read_messages
+    line = json.dumps({'jsonrpc': '2.0', 'method': 'notifications/progress'}).encode() + b'\n'
+    inbox = queue.Queue(maxsize=32)
+    stopped = threading.Event()
+    reader = threading.Thread(target=_read_messages, args=(io.BytesIO(line * 100), inbox, stopped))
+    reader.start()
+    try:
+        deadline = time.monotonic() + 2
+        while not inbox.full() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert inbox.full(), 'Exercise the blocked publisher, not just EOF'
+        stopped.set()
+        reader.join(timeout=1)
+        assert not reader.is_alive()
+    finally:
+        stopped.set()
+        reader.join(timeout=1)
 
 
 def _process_running(pid):

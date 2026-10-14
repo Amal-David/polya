@@ -59,11 +59,29 @@ adapter, **not an authenticated sandbox** for arbitrary extensions. Do not point
 it at an untrusted executable. Unknown upstream IDs and tool errors remain
 operational/discovery errors, never puzzle-solving conclusions.
 
+The total deadline covers input writes as well as response reads. Short pipe
+writes are completed; a backend that initializes and then stops reading is
+terminated at the deadline. Response-queue publication is cancellation-aware,
+and reader/writer workers are joined during cleanup, including after noisy
+notifications following a successful result.
+
 Each POSIX backend starts in a new session; cleanup terminates its process group,
-including remaining workers after the MCP leader exits. Windows uses a trusted
+including remaining same-group workers after the MCP leader exits. Windows uses a trusted
 supervisor that joins a kill-on-close Job Object before launching the backend;
-if job setup fails, no backend is launched. This covers ordinary descendant
-workers, not hostile POSIX code that deliberately escapes its process group.
+if job setup fails, no backend is launched.
+
+For an interrupted in-flight tool call, the bridge sends MCP cancellation and
+gives the upstream host up to 500ms (at most 10% of the total deadline) to reap
+its workers before hard termination. This allowance is reserved inside the
+request deadline. Incomplete blocked writes are not interleaved with cancellation.
+
+**Open POSIX containment limitation:** Jacobian's pinned `run_bounded_process`
+helper itself starts some solver workers in new sessions. Those workers escape
+Polya's MCP process group and may survive a crash or unresponsive host despite
+the cooperative cancellation attempt. The bridge
+does not guarantee cleanup of detached POSIX workers. Passing same-group cleanup
+tests or exact-gcd integration does not close this gap. Full containment requires
+a separate reviewed supervision policy; no host security settings are changed.
 
 The source/release pin in `puzzleops/jacobian_pin.json` records the tested
 runtime release and its independently observed upstream GitHub HEAD. The HEAD
