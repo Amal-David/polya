@@ -191,6 +191,10 @@ from .cryptic import operations as cryptic_ops
 from .mechanisms import operations as mechanism_ops
 OPS.extend(cryptic_ops(_op))
 OPS.extend(mechanism_ops(_op))
+from .crypto_targets import operations as target_ops
+from .artifact_png import operations as png_ops
+OPS.extend(target_ops(_op))
+OPS.extend(png_ops(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 
 
@@ -221,7 +225,7 @@ def _backend_versions():
     from importlib import metadata
     from .native_z3 import native_version
     versions = {"native_z3": native_version()}
-    for name in ("ortools", "aalpy", "numpy", "protobuf"):
+    for name in ("ortools", "aalpy", "numpy", "protobuf", "Pillow"):
         try: versions[name] = metadata.version(name)
         except metadata.PackageNotFoundError: versions[name] = None
     return versions
