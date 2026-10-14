@@ -30,6 +30,16 @@ def library_path():
     return ctypes.util.find_library('z3')
 
 
+def require_supported_version(version: str) -> None:
+    """Reject untested/unsupported native ABIs before creating a solver context."""
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", version)
+    if match is None or not (4, 13, 0) <= tuple(map(int, match.groups())) < (5, 0, 0):
+        raise BackendUnavailable(
+            f"Unsupported native Z3 {version!r}; Polya requires Z3 >=4.13,<5. "
+            "Install the z3/solvers extra or explicitly use the reference backend."
+        )
+
+
 def load_library():
     path=library_path()
     if not path: raise BackendUnavailable("Z3 is unavailable. Install the solvers extra from the source checkout.")
@@ -37,6 +47,7 @@ def load_library():
     except OSError as exc: raise BackendUnavailable(f'Cannot load Z3: {exc}') from exc
     for name,args,rest in [
         ('Z3_mk_config',[],C.c_void_p),('Z3_del_config',[C.c_void_p],None),
+        ('Z3_set_param_value',[C.c_void_p,C.c_char_p,C.c_char_p],None),
         ('Z3_mk_context',[C.c_void_p],C.c_void_p),('Z3_del_context',[C.c_void_p],None),
         ('Z3_eval_smtlib2_string',[C.c_void_p,C.c_char_p],C.c_char_p),
         ('Z3_get_error_msg',[C.c_void_p,C.c_uint],C.c_char_p),
@@ -46,6 +57,7 @@ def load_library():
             f=getattr(lib,name); f.argtypes=args; f.restype=rest
         except AttributeError as exc:
             raise BackendUnavailable('Installed libz3 lacks the supported C API') from exc
+    require_supported_version(lib.Z3_get_full_version().decode())
     return lib
 
 
@@ -119,6 +131,8 @@ class Emitter:
         return f'({mapping[name]} '+ ' '.join(args)+')'
 
     def program(self,active):
+        # Set these on the SMT-LIB frontend as well as the context config:
+        # the frontend tracks whether get-unsat-core is enabled separately.
         out=['(set-option :print-success false)','(set-option :produce-models true)',
              '(set-option :produce-unsat-cores true)']
         for n,var in self.model.variables.items():
@@ -146,8 +160,12 @@ class Z3Engine:
         self.model,self.active,self.budget=model,active,budget
         self.emitter=Emitter(model)
         cfg=self.lib.Z3_mk_config()
-        self.ctx=self.lib.Z3_mk_context(cfg)
-        self.lib.Z3_del_config(cfg)
+        try:
+            self.lib.Z3_set_param_value(cfg,b'model',b'true')
+            self.lib.Z3_set_param_value(cfg,b'unsat_core',b'true')
+            self.ctx=self.lib.Z3_mk_context(cfg)
+        finally:
+            self.lib.Z3_del_config(cfg)
         self.handler=C.CFUNCTYPE(None,C.c_void_p,C.c_uint)(self._error)
         self.lib.Z3_set_error_handler(self.ctx,self.handler)
         try: self.eval(self.emitter.program(active))
