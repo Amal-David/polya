@@ -205,6 +205,8 @@ from .jacobian_bridge import operations as jacobian_ops
 OPS.extend(jacobian_ops(_op))
 from .proposals import operations as proposal_ops
 OPS.extend(proposal_ops(_op))
+from .equality_patterns import operations as equality_ops
+OPS.extend(equality_ops(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 
 

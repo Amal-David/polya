@@ -2,6 +2,14 @@
 
 ## Unreleased after 0.2.2
 
+- Add `pattern.equality_check` and typed-plan `equality_pattern` targets: compare
+  complete output equality partitions under one shared bijection, with explicit
+  digest/byte/hex conventions, full mismatch evidence and planted controls.
+  This is a conditional verifier, not a candidate generator or a solve claim.
+- Reconcile the older duplicate Jacobian branch with the canonical integration
+  merged in #8, preserving its typed API, inspect/provenance, limits and updater.
+  Remove the obsolete duplicate source pin; no alternate bridge API is retained.
+
 - Add bounded `mechanism.plan_scan` with typed source/output references, explicit
   binary conversions, exact coordinate derivations and plan-bound resume IDs.
 - Add `bits.invert`, `bits.pack`, `symbols.to_bits` and `bytes.slice`; preserve

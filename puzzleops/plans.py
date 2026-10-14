@@ -14,6 +14,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from .crypto_targets import Lock, Target, raw_hex
+from .equality_patterns import EqualityPattern
 from .cryptic import Spec
 from .mechanisms import _indexes
 
@@ -53,11 +54,16 @@ class OpenSSLTarget(Spec):
     lock: Lock
 
 
+class EqualityTarget(Spec):
+    kind: Literal['equality_pattern']
+    target: EqualityPattern
+
+
 class Plan(Spec):
     sources: list[Source] = Field(min_length=1, max_length=4)
     nodes: list[Node] = Field(default_factory=list, max_length=8)
     candidate: Reference
-    target: Annotated[DirectTarget | OpenSSLTarget, Field(discriminator='kind')]
+    target: Annotated[DirectTarget | OpenSSLTarget | EqualityTarget, Field(discriminator='kind')]
 
 
 class ScanInput(Spec):
@@ -293,6 +299,10 @@ def scan(**kwargs) -> dict:
                         outcome = checked['outcome']
                         matched = checked['match']
                         target_trace = {'operation_id': 'crypto.target_check', 'result': checked}
+                    elif isinstance(p.target, EqualityTarget):
+                        checked = execute('pattern.equality_check', {'candidate_hex': candidate, 'target': p.target.target.model_dump()})
+                        outcome, matched = checked['outcome'], checked['match']
+                        target_trace = {'operation_id': 'pattern.equality_check', 'result': checked}
                     else:
                         # Stable content-derived ID allows reuse without losing a recipe's
                         # ordinal/choices/coordinate derivation in the outer result.
@@ -308,12 +318,17 @@ def scan(**kwargs) -> dict:
                         target_trace = {'operation_id': 'crypto.openssl_scan', 'result': checked}
                 except ValueError as exc:
                     error = {'node': 'target', 'operation_id': 'crypto.target_check' if isinstance(p.target, DirectTarget)
+                             else 'pattern.equality_check' if isinstance(p.target, EqualityTarget)
                              else 'crypto.openssl_scan', 'message': str(exc)[:500]}
             timed()
             if error:
                 outcome, matched = 'INVALID_RECIPE_INPUT', False
             row = {'ordinal': cursor, 'choices': choices, 'outcome': outcome, 'error': error,
                    'candidate_sha256': _sha(bytes.fromhex(candidate)) if candidate is not None and error is None else None}
+            if isinstance(p.target, EqualityTarget) and target_trace is not None:
+                # Negative evidence is as important as a match: never retain
+                # only a prefix, histogram, or boolean for this consumer.
+                row['target_check'] = target_trace
             hit = ({**row, 'candidate_hex': candidate, 'candidate_ref': p.candidate.model_dump(), 'derivation': trace, 'target_check': target_trace,
                     'evidence_kind': 'EXACT_TARGET_UNDER_DECLARED_PLAN'} if matched else None)
             size = len(canonical_json(row).encode()) + (len(canonical_json(hit).encode()) if hit else 0)
