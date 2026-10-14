@@ -11,7 +11,7 @@ from math import prod
 import time
 from typing import Literal
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator
 from .cryptic import Spec, MAX_TEXT
 
 # Only deterministic string-to-string operations. No recursion, file or network
@@ -27,6 +27,12 @@ class Step(Spec):
     output_field: str = Field(min_length=1, max_length=80)
     inputs: dict = Field(default_factory=dict)
     rationale: str = Field(min_length=1, max_length=512)
+
+    @field_validator("operation_id", mode="before")
+    @classmethod
+    def _canonical_operation_id(cls, value):
+        from .catalog import canonical_operation_id
+        return canonical_operation_id(value)
 
 
 class Checkpoint(Spec):
@@ -60,7 +66,7 @@ def _indexes(ordinal: int, sizes: list[int]) -> list[int]:
 def scan(source: str, stages: list[list[dict]], checkpoint: dict, start: int = 0,
          max_trials: int = 256, max_matches: int = 8, max_work: int = 500000,
          timeout_ms: int = 5000) -> dict:
-    from .catalog import REGISTRY, RENAMED_OPERATION_IDS, unknown_operation
+    from .catalog import REGISTRY
     p = ScanSpec(source=source, stages=stages, checkpoint=checkpoint, start=start,
                  max_trials=max_trials, max_matches=max_matches, max_work=max_work, timeout_ms=timeout_ms)
     sizes = [len(stage) for stage in p.stages]
@@ -73,8 +79,6 @@ def scan(source: str, stages: list[list[dict]], checkpoint: dict, start: int = 0
         raise ValueError("recipe definitions exceed 100000 characters")
     for stage in p.stages:
         for step in stage:
-            if step.operation_id in RENAMED_OPERATION_IDS:
-                raise unknown_operation(step.operation_id)
             if step.operation_id not in ALLOWED:
                 raise ValueError("operation is not in the deterministic recipe allowlist")
             operation = REGISTRY[step.operation_id]

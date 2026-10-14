@@ -218,7 +218,7 @@ from .equality_patterns import operations as equality_ops
 OPS.extend(equality_ops(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 
-# Pre-0.3.0 operation IDs, kept only so unknown-ID errors can point at the new name.
+# Pre-0.3.0 operation IDs; each still executes as an alias and results report the new ID.
 RENAMED_OPERATION_IDS = {
     "crypto.bip39.seed": "crypto.bip39_seed",
     "crypto.openssl.decrypt": "crypto.openssl_decrypt",
@@ -230,6 +230,10 @@ RENAMED_OPERATION_IDS = {
 }
 
 
+def canonical_operation_id(operation_id):
+    return RENAMED_OPERATION_IDS.get(operation_id, operation_id) if type(operation_id) is str else operation_id
+
+
 _STOPWORDS = frozenset({"a", "an", "and", "by", "in", "is", "of", "or", "the", "to", "with"})
 
 
@@ -238,9 +242,6 @@ def _words(text: str) -> set[str]:
 
 
 def unknown_operation(operation_id) -> ValueError:
-    renamed = RENAMED_OPERATION_IDS.get(operation_id) if type(operation_id) is str else None
-    if renamed:
-        return ValueError(f"unknown operation_id {operation_id!r}; renamed to {renamed!r} in 0.3.0")
     close = []
     if type(operation_id) is str:
         # A keyword hit on the name after the family catches synonyms (cipher.vigenere) that spelling misses.
@@ -262,6 +263,7 @@ def find(query: str = "", *, operation_id: str | None = None, limit: int = 5):
     if type(query) is not str or type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("query must be text and limit an integer in [1,100]")
     if operation_id is not None:
+        operation_id = canonical_operation_id(operation_id)
         if operation_id not in REGISTRY:
             raise unknown_operation(operation_id)
         return REGISTRY[operation_id].contract()
@@ -340,6 +342,7 @@ def implementation_fingerprint() -> str:
 
 
 def prepare(operation_id: str, inputs: dict):
+    operation_id = canonical_operation_id(operation_id)
     if operation_id not in REGISTRY:
         raise unknown_operation(operation_id)
     if type(inputs) is not dict:

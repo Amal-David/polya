@@ -8,20 +8,25 @@ run an operation without reading the source.
 
 ### Breaking
 
-- The implementation lives in the `polya` package. `puzzleops` is a one-line
-  deprecated alias exporting `find` and `run` only; `puzzleops.<module>`
-  imports and the `puzzleops`/`puzzleops-mcp` commands are gone.
+- The implementation lives in the `polya` package. `puzzleops` is a deprecated
+  alias: `import puzzleops.<module>` returns the matching `polya` module. The
+  per-module shim files and the `puzzleops`/`puzzleops-mcp` console scripts
+  are gone; use `polya` and `polya-mcp`.
+- `polya inspect` prints a compact summary by default; `--schema` restores the
+  full JSON-schema contract.
+- GSMG replay fixtures move to `examples/cases/gsmg/`.
+
+### Renamed operations
+
 - Seven operation IDs are renamed so every ID is `family.operation`:
   `crypto.bip39.seed` -> `crypto.bip39_seed`, `crypto.openssl.decrypt` ->
   `crypto.openssl_decrypt`, `crypto.openssl.inspect` -> `crypto.openssl_inspect`,
   `symbols.to_bits` -> `bits.from_symbols`, `encoding.radix_bytes` ->
   `bytes.from_radix`, `encoding.symbol_map` -> `text.symbol_map`,
-  `mechanism.scan` -> `mechanism.recipe_scan`. Running an old ID fails with a
-  message naming the new one. Receipt `experiment_key` values for these
-  operations change because the ID is part of the hashed identity.
-- `polya inspect` prints a compact summary by default; `--schema` restores the
-  full JSON-schema contract.
-- GSMG replay fixtures move to `examples/cases/gsmg/`.
+  `mechanism.scan` -> `mechanism.recipe_scan`. The old IDs still execute,
+  including as recipe and plan steps, and resolve to the new ID: results and
+  receipts report the new ID, so an old-ID call has the same `experiment_key`
+  as the new-ID call.
 
 ### CLI and Python
 

@@ -27,7 +27,7 @@ class Session:
                     result = op.result.model_validate(result).model_dump(mode="json")
                 expected = make_receipt(op, validated, identity, key, result)
                 if (stored_identity != identity or envelope["receipt"] != expected
-                        or envelope["operation_id"] != operation_id
+                        or envelope["operation_id"] != op.operation_id
                         or set(envelope) != {"operation_id", "result", "receipt"}):
                     raise ValueError("metadata mismatch")
             except (KeyError, TypeError, ValueError) as exc:

@@ -11,7 +11,7 @@ from math import prod
 import time
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from .crypto_targets import Lock, Target, raw_hex
 from .equality_patterns import EqualityPattern
@@ -37,6 +37,12 @@ class Step(Spec):
     bindings: dict[str, Reference] = Field(min_length=1, max_length=4)
     inputs: dict = Field(default_factory=dict)
     rationale: str = Field(min_length=1, max_length=512)
+
+    @field_validator('operation_id', mode='before')
+    @classmethod
+    def _canonical_operation_id(cls, value):
+        from .catalog import canonical_operation_id
+        return canonical_operation_id(value)
 
 
 class Node(Spec):

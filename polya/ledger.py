@@ -267,6 +267,7 @@ class Ledger:
             raise ValueError('dependency does not exist')
         if len(events) >= 10000:
             raise ValueError('ledger event limit')
+        operation_id = catalog.canonical_operation_id(operation_id)
         if type(operation_id) is not str or operation_id not in catalog.REGISTRY:
             raise catalog.unknown_operation(operation_id)
         # Own the request snapshot. Caller/kernel mutation cannot rewrite the
