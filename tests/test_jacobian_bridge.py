@@ -5,8 +5,11 @@ The mock is not claimed as upstream integration. Actual upstream is a separate j
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
+import signal
 import stat
+import subprocess
 import sys
 import textwrap
 import time
@@ -18,7 +21,7 @@ from polya import find, run
 from polya.jacobian_bridge import find_math, inspect_runtime, pin, run_math
 
 MOCK = '''#!{python}
-import json, os, sys, time
+import json, os, subprocess, sys, time
 mode=os.environ.get('FAKE_JACOBIAN_MODE','ok')
 for raw in sys.stdin.buffer:
     req=json.loads(raw)
@@ -32,6 +35,17 @@ for raw in sys.stdin.buffer:
         continue
     elif req.get('method')=='tools/call':
         tool=req['params']['name'];args=req['params']['arguments']
+        if mode.startswith('tree_'):
+            child_code = ('import os, pathlib, signal, sys, time; '
+                          'signal.signal(signal.SIGTERM, signal.SIG_IGN); '
+                          'pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); '
+                          'time.sleep(60)')
+            marker=os.environ['FAKE_JACOBIAN_CHILD']
+            subprocess.Popen([sys.executable, '-c', child_code, marker])
+            ready=time.monotonic()+5
+            while (not os.path.exists(marker) or not os.path.getsize(marker)) and time.monotonic()<ready: time.sleep(0.01)
+            if mode=='tree_hang': time.sleep(60)
+            if mode=='tree_exit': os._exit(0)
         if mode=='upstream_error':
             result={{'jsonrpc':'2.0','id':2,'result':{{'isError':True,'content':[{{'type':'text',
              'text':json.dumps({{'code':'INVALID_REQUEST','stage':'operation_validation'}})}}]}}}}
@@ -67,11 +81,8 @@ def fake_backend(tmp_path, monkeypatch):
         file = tmp_path / 'jacobian-mcp.cmd'
         file.write_text(
             '@echo off\n'
-            'if "%FAKE_JACOBIAN_MODE%"=="hang" goto hang\n'
             f'"{sys.executable}" "{script}"\n'
-            'exit /b 0\n'
-            ':hang\n'
-            'goto hang\n', encoding='utf-8')
+            'exit /b 0\n', encoding='utf-8')
     else:
         file = tmp_path / 'jacobian-mcp'
         file.write_text(MOCK.format(python=sys.executable), encoding='utf-8')
@@ -145,6 +156,122 @@ def test_kill_hung_upstream(fake_backend, monkeypatch):
     result=find_math(query='gcd',timeout_ms=1000)
     assert result['status']=='TIMEOUT' and result['data'] is None
     assert time.monotonic()-begin<4
+
+
+def _process_running(pid):
+    if os.name == 'nt':
+        import ctypes
+        from ctypes import wintypes
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        kernel.WaitForSingleObject.restype = wintypes.DWORD
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
+        handle = kernel.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if not handle:
+            assert ctypes.get_last_error() == 87  # ERROR_INVALID_PARAMETER: no such PID
+            return False
+        try:
+            return kernel.WaitForSingleObject(handle, 0) == 258  # WAIT_TIMEOUT
+        finally:
+            kernel.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    if sys.platform == 'linux':
+        try:
+            # An orphaned zombie is dead; this container's PID 1 may reap late.
+            return Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()[0] != 'Z'
+        except FileNotFoundError:
+            return False
+    return True
+
+
+@pytest.mark.parametrize('mode, status', [('tree_hang', 'TIMEOUT'), ('tree_ok', 'OK'),
+                                          ('tree_exit', 'TIMEOUT')])
+def test_cleanup_terminates_descendants_even_after_leader_exits(fake_backend, monkeypatch, tmp_path, mode, status):
+    marker = tmp_path / 'child.pid'
+    monkeypatch.setenv('FAKE_JACOBIAN_MODE', mode)
+    monkeypatch.setenv('FAKE_JACOBIAN_CHILD', str(marker))
+    try:
+        # Several real process launches are needed on Windows. Allow startup
+        # separately from the assertion that no descendant survives cleanup.
+        result = find_math(query='gcd', timeout_ms=3000)
+        # A Windows job closes when the supervisor exits, so tree_exit can
+        # report closed protocol output before the deadline instead of timeout.
+        if os.name == 'nt' and mode == 'tree_exit':
+            assert result['status'] == 'PROTOCOL_ERROR'
+        else:
+            assert result['status'] == status
+        assert marker.exists(), 'The grandchild must actually start before cleanup'
+        pid = int(marker.read_text())
+        deadline = time.monotonic() + 3
+        while _process_running(pid) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert not _process_running(pid), 'Jacobian grandchild survived bridge cleanup'
+    finally:
+        if marker.exists():
+            pid = int(marker.read_text())
+            if _process_running(pid):
+                if os.name == 'nt':
+                    subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'], check=False,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    os.kill(pid, signal.SIGKILL)
+
+
+@pytest.mark.parametrize('field', ['version', 'release_source_sha', 'wheel_sha256',
+                                   'upstream', 'requires_python', 'execution'])
+def test_runtime_pin_promotions_change_receipt_identity(monkeypatch, field):
+    from puzzleops import catalog, jacobian_bridge
+    monkeypatch.setenv('POLYA_JACOBIAN_MCP', '/path/that/is/not/here')
+    before = run('jacobian.inspect', {})['receipt']
+    promoted = pin()
+    promoted[field] += '-reviewed-promotion'
+    monkeypatch.setattr(jacobian_bridge, '_PIN_SNAPSHOT', json.dumps(promoted))
+    monkeypatch.setattr(catalog, '_JACOBIAN_PIN_RUNTIME_SNAPSHOT',
+                        catalog.canonical_json(catalog._execution_pin_fields(promoted)).encode('utf8'))
+    monkeypatch.setattr(catalog, '_LOADED_FINGERPRINT', None)
+    after = run('jacobian.inspect', {})['receipt']
+    assert before['implementation_fingerprint'] != after['implementation_fingerprint']
+    assert before['experiment_key'] != after['experiment_key']
+
+
+def test_source_watch_metadata_does_not_promote_runtime_identity(monkeypatch):
+    from puzzleops import catalog, jacobian_bridge
+    before = run('jacobian.inspect', {})['receipt']
+    watched = pin()
+    for field in ('upstream_main_sha', 'latest_available_version',
+                  'latest_available_wheel_sha256', 'latest_requires_python'):
+        watched[field] += '-new-observation'
+    monkeypatch.setattr(jacobian_bridge, '_PIN_SNAPSHOT', json.dumps(watched))
+    monkeypatch.setattr(catalog, '_JACOBIAN_PIN_RUNTIME_SNAPSHOT',
+                        catalog.canonical_json(catalog._execution_pin_fields(watched)).encode('utf8'))
+    monkeypatch.setattr(catalog, '_LOADED_FINGERPRINT', None)
+    assert run('jacobian.inspect', {})['receipt'] == before
+
+
+def test_pin_returns_owned_copy_and_does_not_reload_disk(monkeypatch):
+    from puzzleops import jacobian_bridge
+    original = pin()
+    changed = pin()
+    changed['version'] = 'unreviewed'
+    monkeypatch.setattr(jacobian_bridge, 'files', lambda *_: pytest.fail('Loaded pin must not reopen disk'))
+    assert pin() == original
+
+
+def test_failed_windows_job_setup_never_starts_backend(monkeypatch):
+    from puzzleops import _jacobian_worker
+    with patch.object(_jacobian_worker.os, 'name', 'nt'), \
+            patch.object(_jacobian_worker.sys, 'argv', ['supervisor', 'operator-backend']), \
+            patch.object(_jacobian_worker, '_join_job', side_effect=OSError('job setup denied')), \
+            patch.object(_jacobian_worker.subprocess, 'Popen') as launch:
+        with pytest.raises(OSError, match='job setup denied'):
+            _jacobian_worker.main()
+        launch.assert_not_called()
 
 
 @pytest.mark.parametrize('inputs', [

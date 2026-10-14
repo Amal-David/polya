@@ -59,11 +59,23 @@ adapter, **not an authenticated sandbox** for arbitrary extensions. Do not point
 it at an untrusted executable. Unknown upstream IDs and tool errors remain
 operational/discovery errors, never puzzle-solving conclusions.
 
+Each POSIX backend starts in a new session; cleanup terminates its process group,
+including remaining workers after the MCP leader exits. Windows uses a trusted
+supervisor that joins a kill-on-close Job Object before launching the backend;
+if job setup fails, no backend is launched. This covers ordinary descendant
+workers, not hostile POSIX code that deliberately escapes its process group.
+
 The source/release pin in `puzzleops/jacobian_pin.json` records the tested
 runtime release and its independently observed upstream GitHub HEAD. The HEAD
 is **not** claimed to be the source revision used to build that wheel. The
 `release_source_sha` for 0.23.0 was obtained from its PyPI publishing
 attestation. See https://pypi.org/project/jacobian/0.23.0/ .
+
+Receipts bind the loaded runtime version, release-source and wheel provenance,
+Python requirement, upstream identity and execution mode into the implementation
+fingerprint and experiment key. Upstream-watch metadata does not change execution
+identity. Like Python source, the pin is frozen when imported: restart Polya after
+a reviewed runtime promotion so execution and receipt identity change together.
 
 ## Weekly upstream source sync
 

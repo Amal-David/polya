@@ -15,6 +15,7 @@ import re
 import signal
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from importlib.resources import files
@@ -35,8 +36,13 @@ _SCOPE = ("Upstream Jacobian result for the supplied mathematical payload only; 
           "or permission to execute outside this local Jacobian runtime.")
 
 
+# Keep the runtime and its receipt fingerprint on the same loaded pin. A
+# reviewed on-disk promotion takes effect after restarting Polya.
+_PIN_SNAPSHOT = files("puzzleops").joinpath("jacobian_pin.json").read_text(encoding="utf-8")
+
+
 def pin() -> dict:
-    return json.loads(files("puzzleops").joinpath("jacobian_pin.json").read_text(encoding="utf-8"))
+    return json.loads(_PIN_SNAPSHOT)
 
 
 def _executable() -> str | None:
@@ -155,8 +161,8 @@ def _project(result: dict, tool: str) -> dict:
 def _stop(proc: subprocess.Popen) -> None:
     """Reap the host AND its workers after a response, deadline, or error.
 
-    The Unix host has a private session. Windows uses the fixed taskkill /T
-    process-tree command (never a puzzle-controlled executable or shell string).
+    The Unix host has a private session. The Windows supervisor owns the last
+    handle to its kill-on-close Job Object, including already-orphaned workers.
     The operator-installed Jacobian runtime is trusted, but an unresponsive
     backend must not silently leave long-running solver workers behind.
     """
@@ -174,13 +180,6 @@ def _stop(proc: subprocess.Popen) -> None:
             if proc.poll() is None:
                 try: proc.kill()
                 except ProcessLookupError: pass
-    elif os.name == "nt" and proc.poll() is None:
-        try:
-            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           check=False, timeout=2)
-        except (OSError, subprocess.TimeoutExpired):
-            pass
     if proc.poll() is None:
         try: proc.kill()
         except (OSError, ProcessLookupError): pass
@@ -205,7 +204,12 @@ def _bridge(tool: str, arguments: dict, timeout_ms: int) -> dict:
     deadline = started + timeout_ms / 1000
     proc = None
     try:
-        proc = subprocess.Popen([executable], stdin=subprocess.PIPE,
+        command = [executable]
+        if os.name == "nt":
+            # Enter a kill-on-close Job Object before launching the backend,
+            # avoiding the race to assign a process that has already spawned.
+            command = [sys.executable, str(Path(__file__).with_name("_jacobian_worker.py")), executable]
+        proc = subprocess.Popen(command, stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                 bufsize=0, close_fds=True, start_new_session=os.name=="posix")
         inbox: queue.Queue = queue.Queue(maxsize=32)  # Bounds noisy upstream notifications.

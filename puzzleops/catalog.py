@@ -256,12 +256,12 @@ def _execution_pin_fields(value: dict) -> dict:
     # Do not churn receipt identity for a new observed upstream HEAD. Only a
     # promoted runtime/release changes the execution environment.
     return {name:value[name] for name in
-            ("execution", "version", "release_source_sha", "wheel_sha256")}
+            ("execution", "upstream", "version", "release_source_sha", "wheel_sha256", "requires_python")}
 
 
-_JACOBIAN_PIN_RUNTIME_SNAPSHOT = canonical_json(_execution_pin_fields(
-    json.loads((Path(__file__).parent / "jacobian_pin.json").read_text(encoding="utf8"))
-)).encode("utf8")
+from .jacobian_bridge import pin as _jacobian_pin
+
+_JACOBIAN_PIN_RUNTIME_SNAPSHOT = canonical_json(_execution_pin_fields(_jacobian_pin())).encode("utf8")
 _FINGERPRINT_LOCK = RLock()
 _LOADED_FINGERPRINT = None
 _FINGERPRINT_GENERATION = None
