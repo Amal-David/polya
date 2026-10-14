@@ -64,9 +64,14 @@ happens to produce `0` and `1` is still symbols until `symbols.to_bits` explicit
 assigns those meanings. There is no implicit text decode, normalization, integer
 conversion, channel conversion, truncation or padding.
 
-The target is either `{kind: "direct", target: ...}` using the existing exact
-SHA256/P2PKH target contract, or `{kind: "openssl", lock: ...}` using one existing
-calibrated AES lock contract. `NO_VALID_PADDING` is a negative only for that
+The target is `{kind: "direct", target: ...}` using the existing exact
+SHA256/P2PKH target contract, `{kind: "equality_pattern", target: ...}` using the
+[whole-output equality contract](EQUALITY-PATTERNS.md), or
+`{kind: "openssl", lock: ...}` using one existing calibrated AES lock contract.
+Equality targets retain their complete check evidence in every valid trial,
+including negatives; matching rows also carry the usual derivation. Digest,
+representation, pattern and pattern source are bound into the plan ID.
+`NO_VALID_PADDING` is a negative only for that
 specified calibrated cipher/password convention. `READING_NOT_APPLICABLE`,
 invalid recipe inputs and operational failures are not target negatives.
 OpenSSL calibration failure stops without advancing that candidate's cursor.
@@ -106,7 +111,8 @@ Plans admit four sources, eight nodes, 64 alternatives per node, and at most one
 million ordered recipes. One call admits 512 trials and 16 matches. Symbols and
 bits are bounded to 65,536 units throughout the new PNG/grid/binary route;
 packing yields at most 8,192 bytes. Direct target checks accept up to 16,384
-bytes. The existing calibrated scanner accepts at most 4,096 candidate bytes:
+bytes. The equality-pattern target and existing calibrated scanner each accept
+at most 4,096 candidate bytes:
 use an explicit `bytes.slice` when the proposed interpretation requires selection,
 or keep the full bytes for a direct target. Never silently drop an oversized
 password. Existing `encoding.radix_bytes` limits are unchanged. The optional

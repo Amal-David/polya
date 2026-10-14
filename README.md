@@ -71,7 +71,7 @@ It exposes **`puzzle.find`** to discover or inspect an operation and
 | Image evidence | Lossless PNG channel/bit selection, source hashes and pixel coordinates |
 | Cryptic decoding | Bifid, Vigenere/Beaufort, checkerboards, explicit alphabets and radix conventions |
 | Mechanism search | Typed artifact-to-target plans, bound resume IDs, explicit losses and shared intermediates |
-| Crypto targets | Calibrated multi-lock scans, exact SHA256/P2PKH checks, binary-safe readings and bound resume IDs |
+| Crypto targets | Calibrated multi-lock scans, exact SHA256/P2PKH checks, whole-output equality patterns and bound resume IDs |
 | Constraints | Z3 and CP-SAT adapters, finite reference solver, answer uniqueness, forced values |
 | Automata | Sequence rules, batched replay, shortest distinguishing inputs, bounded active learning |
 
