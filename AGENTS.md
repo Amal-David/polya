@@ -48,7 +48,10 @@ unrelated PyPI package named `polya`.
 
 ## Change rules
 
-Keep operation IDs and the public Python API compatible. Give each operation a
+Before 1.0 an operation ID or public Python name may change in a minor release.
+Record every rename in CHANGELOG.md under "Breaking", and make the old ID fail
+with a message naming the new one (`RENAMED_OPERATION_IDS` in `polya/catalog.py`).
+Do not keep executable aliases for names that were never published. Give each operation a
 narrow postcondition, typed input and output, applicability and resource limits.
 Update the contract, tests, docs and version policy together. After changing an
 operation, run `python scripts/generate_operations_doc.py`; CI fails if
