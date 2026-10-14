@@ -11,14 +11,23 @@ from .cryptic import Spec
 class Proposal(Spec):
     engine: str = Field(min_length=1, max_length=100)
     revision: str = Field(min_length=1, max_length=128)
-    artifact_sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+    artifact_sha256: str = Field(
+        pattern=r'^[0-9a-f]{64}$',
+        description='SHA-256 of the exact ciphertext encoded as UTF-8, without normalization or an added byte-order mark; not the original artifact bytes.',
+    )
     ciphertext: str = Field(min_length=1, max_length=16384)
     plaintext: str = Field(min_length=1, max_length=16384)
     key: str = Field(min_length=1, max_length=1024)
     alphabet: str = Field(default='ABCDEFGHIJKLMNOPQRSTUVWXYZ', min_length=2, max_length=256)
     variant: Literal['vigenere','beaufort','variant_beaufort'] = 'vigenere'
-    expected_plaintext_sha256: str | None = Field(default=None, pattern=r'^[0-9a-f]{64}$')
-    checkpoint_source: str | None = Field(default=None, min_length=1, max_length=512)
+    expected_plaintext_sha256: str | None = Field(
+        default=None, pattern=r'^[0-9a-f]{64}$',
+        description='Optional SHA-256 commitment to the exact plaintext encoded as UTF-8, without normalization or an added byte-order mark.',
+    )
+    checkpoint_source: str | None = Field(
+        default=None, min_length=1, max_length=512,
+        description='Caller-supplied, unauthenticated source label for the plaintext commitment; required together with expected_plaintext_sha256.',
+    )
 
 def verify_proposal(**kwargs) -> dict:
     p = Proposal.model_validate(kwargs)
@@ -48,13 +57,19 @@ def verify_proposal(**kwargs) -> dict:
     committed = None if p.expected_plaintext_sha256 is None else observed == p.expected_plaintext_sha256
     return {'replay_consistent':consistent, 'commitment_match':committed,
             'status':'REJECTED' if not consistent or committed is False else 'CHECKPOINT_MATCH' if committed else 'MECHANISM_CONSISTENT_ONLY',
-            'plaintext_sha256':observed, 'engine':p.engine, 'revision':p.revision,
-            'scope':'Replay checks a supplied proposal, not that this engine ran or its search is complete. A valid key/plaintext pair need not be the intended solution.'}
+            'plaintext_sha256':observed,
+            'expected_plaintext_sha256':p.expected_plaintext_sha256,
+            'checkpoint_source':p.checkpoint_source, 'digest_encoding':'utf-8',
+            'engine':p.engine, 'revision':p.revision,
+            'scope':'Replay checks a supplied proposal, not that this engine ran or its search is complete. A valid key/plaintext pair need not be the intended solution. The checkpoint source label is caller-supplied and unauthenticated. All digests cover the exact text encoded as UTF-8, without normalization or an added byte-order mark, not original artifact bytes.'}
 
 def operations(make):
     return [make('specialist.verify_proposal','Verify a specialist-engine candidate',
         'Check artifact identity and independently re-encrypt periodic-cipher proposals.',
         Proposal,verify_proposal,'specialist decipher colossus verify engine proposal candidate cipher',
-        'Independent re-encryption under supplied conventions, without calling the external solver.',
+        'Independent re-encryption under supplied conventions, without calling the external solver. All SHA-256 digests cover exact ciphertext/plaintext encoded as UTF-8, without normalization or an added byte-order mark, not original artifact bytes. Checkpoint source labels are caller-supplied and unauthenticated.',
         'Periodic Vigenere/Beaufort only; 16384 ciphertext characters, 1024 key characters.',
-        replay_consistent=bool,commitment_match=bool|None,status=str,plaintext_sha256=str,engine=str,revision=str,scope=str)]
+        replay_consistent=bool,commitment_match=bool|None,
+        status=Literal['REJECTED','CHECKPOINT_MATCH','MECHANISM_CONSISTENT_ONLY'],
+        plaintext_sha256=str,expected_plaintext_sha256=str|None,checkpoint_source=str|None,
+        digest_encoding=Literal['utf-8'],engine=str,revision=str,scope=str)]
