@@ -14,23 +14,17 @@ agent configuration or grant network access.
 
 ## Investigation skill
 
-The canonical source is `skills/polya/SKILL.md`. Checked-in host entry points are
-`.agents/skills/polya/SKILL.md` and `.claude/skills/polya/SKILL.md`. Their descriptions
-scope them to using Polya for puzzle experiments, not ordinary repository edits.
-Host support, enabled settings and workspace trust still determine loading.
-The repository tests validate file layout, links and synchronization; they are
-not a certification that every client release has loaded the skill.
-
-After editing the canonical skill, regenerate and verify the host copies:
+The skill is `.agents/skills/polya/SKILL.md` (Codex) and `.claude/skills/polya/SKILL.md`
+(Claude Code). The two files must stay byte-identical: edit both together.
+`tests/test_agent_discovery.py` fails if they differ or if a link in them does not
+resolve to a file in the checkout. Their descriptions scope them to using Polya for
+puzzle experiments, not ordinary repository edits. Host support, enabled settings
+and workspace trust still determine loading. The tests validate file layout and
+links; they do not certify that every client release has loaded the skill.
 
 ```bash
-python scripts/sync_agent_skills.py
-python scripts/sync_agent_skills.py --check
 python -m pytest -q tests/test_agent_setup.py tests/test_agent_discovery.py
 ```
-
-Do not edit the generated host copies independently. Their relative documentation
-links are adjusted for the extra directory level. CI fails if they drift.
 
 ## Connect the tool separately
 
