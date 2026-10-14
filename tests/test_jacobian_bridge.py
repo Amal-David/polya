@@ -65,7 +65,13 @@ def fake_backend(tmp_path, monkeypatch):
         script = tmp_path / 'fake_jacobian.py'
         script.write_text(MOCK.format(python=sys.executable), encoding='utf-8')
         file = tmp_path / 'jacobian-mcp.cmd'
-        file.write_text(f'@echo off\n"{sys.executable}" "{script}"\n', encoding='utf-8')
+        file.write_text(
+            '@echo off\n'
+            'if "%FAKE_JACOBIAN_MODE%"=="hang" goto hang\n'
+            f'"{sys.executable}" "{script}"\n'
+            'exit /b 0\n'
+            ':hang\n'
+            'goto hang\n', encoding='utf-8')
     else:
         file = tmp_path / 'jacobian-mcp'
         file.write_text(MOCK.format(python=sys.executable), encoding='utf-8')
