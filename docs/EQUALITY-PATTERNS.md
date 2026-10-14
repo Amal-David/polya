@@ -98,5 +98,5 @@ preserve the returned envelope for full evidence because the ledger stores
 compact outcome/hash links rather than original artifacts or target vectors.
 
 This feature does not add the historical word-index or zero-insertion producers.
-The existing `encoding.radix_bytes` operation is unchanged and is not newly
+The existing `bytes.from_radix` operation is unchanged and is not newly
 admitted as a typed-plan node. Those are independent producer-interface changes.

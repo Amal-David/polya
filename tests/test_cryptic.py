@@ -142,9 +142,9 @@ def test_checkerboard_roundtrip_independent_code_concatenation():
 
 def test_public_schemas_discovery_and_no_boolean_numeric_inputs():
     for oid in ['cipher.bifid','cipher.polyalphabetic','cipher.checkerboard','cipher.periodic_cribs',
-                'grid.traverse','encoding.symbol_map','encoding.radix_bytes']:
+                'grid.traverse','text.symbol_map','bytes.from_radix']:
         c=find(operation_id=oid)
         assert c['input_schema']['additionalProperties'] is False
         assert c['output_schema']['additionalProperties'] is False
     assert find('bifid')[0]['operation_id']=='cipher.bifid'
-    with pytest.raises(ValueError):run('encoding.radix_bytes',{'text':'10','radix':True})
+    with pytest.raises(ValueError):run('bytes.from_radix',{'text':'10','radix':True})

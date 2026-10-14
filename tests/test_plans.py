@@ -69,7 +69,7 @@ def test_unicode_symbols_require_explicit_conversion():
     p['sources'][0]['kind'] = 'symbols'
     with pytest.raises(ValueError, match='explicit conversion'):
         scan(plan=p)
-    p['nodes'].insert(0, {'id': 'binary', 'alternatives': [step('symbols.to_bits', 'input', inputs={'zero': '⚫', 'one': '⚪'})]})
+    p['nodes'].insert(0, {'id': 'binary', 'alternatives': [step('bits.from_symbols', 'input', inputs={'zero': '⚫', 'one': '⚪'})]})
     p['nodes'][1]['alternatives'][0]['bindings']['text'] = ref('binary', 'text')
     assert scan(plan=p)['matches'][0]['candidate_hex'] == '01'
 
@@ -259,8 +259,8 @@ def test_output_budget_pages_large_loss_traces_without_skipping_match():
     p = direct_plan('', b'')
     p['sources'][0].update(kind='symbols', value='A' * 16384)
     p['nodes'] = [
-        {'id': 'mapped', 'alternatives': [step('encoding.symbol_map', 'input', inputs={'mapping': {'A': ''}})] * 16},
-        {'id': 'binary', 'alternatives': [step('symbols.to_bits', 'mapped', 'text', {'zero': '0', 'one': '1'})]},
+        {'id': 'mapped', 'alternatives': [step('text.symbol_map', 'input', inputs={'mapping': {'A': ''}})] * 16},
+        {'id': 'binary', 'alternatives': [step('bits.from_symbols', 'mapped', 'text', {'zero': '0', 'one': '1'})]},
         {'id': 'packed', 'alternatives': [step('bits.pack', 'binary', 'text')]},
     ]
     first = run('mechanism.plan_scan', {'plan': p})

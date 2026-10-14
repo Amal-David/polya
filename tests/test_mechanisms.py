@@ -11,9 +11,9 @@ from examples.cryptic_demo import main, step
 
 
 def setup():
-    a=[step('encoding.symbol_map', {'mapping':{'a':x,'b':y}},rationale='explicit mapping')
+    a=[step('text.symbol_map', {'mapping':{'a':x,'b':y}},rationale='explicit mapping')
        for x,y in [('4','1'),('5','2')]]
-    b=[step('encoding.radix_bytes',{'radix':r},rationale='explicit radix') for r in [10,16]]
+    b=[step('bytes.from_radix',{'radix':r},rationale='explicit radix') for r in [10,16]]
     return dict(source='ab',stages=[a,b],checkpoint={'kind':'prefix','value':'A','source':'test commitment'})
 
 
@@ -56,10 +56,10 @@ def test_resume_ranges_and_limits_do_not_claim_global_exhaustion():
 
 def test_sha_checkpoint_utf8_and_full_public_receipt():
     args=setup();args['checkpoint']={'kind':'sha256','value':hashlib.sha256(b'A').hexdigest(),'source':'fixed test'}
-    result=run('mechanism.scan',args)
+    result=run('mechanism.recipe_scan',args)
     assert result['result']['matches'][0]['text']=='A'
     assert not result['receipt']['independently_reproduced']
-    assert find(operation_id='mechanism.scan')['cache_policy']=='never'
+    assert find(operation_id='mechanism.recipe_scan')['cache_policy']=='never'
 
 
 def test_invalid_branches_remain_explicit():
@@ -70,7 +70,7 @@ def test_invalid_branches_remain_explicit():
 
 
 @pytest.mark.parametrize('mutation',[
-    lambda a:a['stages'][0][0].update(operation_id='mechanism.scan'),
+    lambda a:a['stages'][0][0].update(operation_id='mechanism.recipe_scan'),
     lambda a:a['stages'][0][0].update(operation_id='os.system'),
     lambda a:a['stages'][0][0]['inputs'].update(text='conflicting'),
     lambda a:a['stages'][0][0].update(output_field='missing'),
@@ -104,8 +104,8 @@ def test_real_historical_checkpoints_and_unused_suffix():
 def test_kernel_contract_failure_is_not_a_negative_puzzle_result():
     from dataclasses import replace
     from polya.catalog import REGISTRY
-    bad=replace(REGISTRY['encoding.symbol_map'],kernel=lambda **kwargs:{'text':'bad'})
-    with patch.dict(REGISTRY,{'encoding.symbol_map':bad}):
+    bad=replace(REGISTRY['text.symbol_map'],kernel=lambda **kwargs:{'text':'bad'})
+    with patch.dict(REGISTRY,{'text.symbol_map':bad}):
         with pytest.raises(RuntimeError,match='output contract'):
             scan(**setup())
 

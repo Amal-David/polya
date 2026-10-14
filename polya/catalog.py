@@ -148,17 +148,17 @@ OPS = [
         "32 slots, <=1000 outputs/page, 100000 output codepoints. Mixed-radix direct seeking.",
         total_assignments=int, start=int, stop=int, emitted=int, candidates=list[dict], next_start=int|None,
         complete=bool, status=Literal["COMPLETE","PARTIAL"], scope=str),
-    _op("crypto.openssl.inspect", "Inspect legacy salted framing", "Recognize Salted__ with 8-byte salt and 16-byte-aligned ciphertext.",
+    _op("crypto.openssl_inspect", "Inspect legacy salted framing", "Recognize Salted__ with 8-byte salt and 16-byte-aligned ciphertext.",
         InspectInput, crypto.openssl_inspect, "openssl aes salt salted cipher kdf header inspect",
         "Framing only; cipher, key size, digest and KDF remain unknown.", "65536 bytes; legacy 8-byte-salt framing only.",
         format=str, salt_hex=str, ciphertext_hex=str, ciphertext_bytes=int, unknown_parameters=list[str], scope=str),
-    _op("crypto.openssl.decrypt", "Evaluate an explicit AES password", "AES-256-CBC with legacy EVP_BytesToKey, count=1, explicit digest and password bytes.",
+    _op("crypto.openssl_decrypt", "Evaluate an explicit AES password", "AES-256-CBC with legacy EVP_BytesToKey, count=1, explicit digest and password bytes.",
         DecryptInput, crypto.openssl_decrypt, "aes decrypt password openssl evp bytestokey md5 sha256 padding",
         "Deterministic decrypt under declared parameters. Padding is a signal, never a solution verdict.",
         "65536 blob bytes, 4096 password bytes. Not PBKDF2 or nonstandard CryptoJS Rijndael.",
         plaintext_padded_hex=str, plaintext_hex=str|None, padding_valid=bool, padding_bytes=int|None,
         cipher=str, kdf=str, iterations=int, digest=str, evidence_kind=str, scope=str),
-    _op("crypto.bip39.seed", "Evaluate the BIP39 seed function", "NFKD + PBKDF2-HMAC-SHA512; vocabulary/checksum validation is a separate question.",
+    _op("crypto.bip39_seed", "Evaluate the BIP39 seed function", "NFKD + PBKDF2-HMAC-SHA512; vocabulary/checksum validation is a separate question.",
         SeedInput, crypto.bip39_seed, "bip39 mnemonic seed passphrase checksum unicode normalization nfkd pbkdf2",
         "Exact 64-byte seed-function output; does not certify a valid mnemonic or target address.", "8192 codepoints per field; 2048 iterations.",
         seed_hex=str, normalization=str, iterations=int, mnemonic_was_normalized=bool,
@@ -209,6 +209,24 @@ from .equality_patterns import operations as equality_ops
 OPS.extend(equality_ops(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 
+# Pre-0.3.0 operation IDs, kept only so unknown-ID errors can point at the new name.
+RENAMED_OPERATION_IDS = {
+    "crypto.bip39.seed": "crypto.bip39_seed",
+    "crypto.openssl.decrypt": "crypto.openssl_decrypt",
+    "crypto.openssl.inspect": "crypto.openssl_inspect",
+    "symbols.to_bits": "bits.from_symbols",
+    "encoding.radix_bytes": "bytes.from_radix",
+    "encoding.symbol_map": "text.symbol_map",
+    "mechanism.scan": "mechanism.recipe_scan",
+}
+
+
+def unknown_operation(operation_id) -> ValueError:
+    renamed = RENAMED_OPERATION_IDS.get(operation_id) if type(operation_id) is str else None
+    if renamed:
+        return ValueError(f"unknown operation_id {operation_id!r}; renamed to {renamed!r} in 0.3.0")
+    return ValueError("unknown operation_id")
+
 
 def canonical_json(value) -> str:
     return json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False)
@@ -219,7 +237,7 @@ def find(query: str = "", *, operation_id: str | None = None, limit: int = 5):
         raise ValueError("query must be text and limit an integer in [1,20]")
     if operation_id is not None:
         if operation_id not in REGISTRY:
-            raise ValueError("unknown operation_id")
+            raise unknown_operation(operation_id)
         return REGISTRY[operation_id].contract()
     tokens = set(re.findall(r"[a-z0-9]+", query.lower()))
     ranked = []
@@ -289,7 +307,7 @@ def implementation_fingerprint() -> str:
 
 def prepare(operation_id: str, inputs: dict):
     if operation_id not in REGISTRY:
-        raise ValueError("unknown operation_id")
+        raise unknown_operation(operation_id)
     if type(inputs) is not dict:
         raise ValueError("inputs must be an object")
     if len(canonical_json(inputs)) > 1_000_000:

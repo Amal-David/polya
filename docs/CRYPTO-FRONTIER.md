@@ -120,7 +120,7 @@ outside the solver's workspace for a credible agent comparison.
 2. **Mechanism synthesis.** Search source-grounded programs that select, reorder,
    map, combine and reduce evidence. Generate alternatives from the clues, rank
    by stated assumptions and unused-evidence predictions, and execute with exact
-   oracles. `mechanism.scan` evaluates supplied recipes; it does not generate them.
+   oracles. `mechanism.recipe_scan` evaluates supplied recipes; it does not generate them.
 3. **Specialist cryptanalysis.** Integrate rather than reimplement high-quality
    unknown-key search for classical ciphers. Colossus/AZDecrypt/CrypTool-style
    engines are candidates, not installed dependencies. Verify their conventions,

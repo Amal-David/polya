@@ -71,9 +71,9 @@ def run_isolated(operation_id: str, inputs: dict, *, limits: Limits | None = Non
         raise TypeError('limits must be Limits')
     if type(operation_id) is not str or type(inputs) is not dict:
         raise ValueError('operation_id must be text and inputs an object')
-    from .catalog import canonical_json, REGISTRY
+    from .catalog import canonical_json, REGISTRY, unknown_operation
     if operation_id not in REGISTRY:
-        raise ValueError('unknown operation_id')
+        raise unknown_operation(operation_id)
     raw = canonical_json(inputs)
     if len(raw.encode()) > 1000000:
         raise ValueError('input exceeds 1 MB')

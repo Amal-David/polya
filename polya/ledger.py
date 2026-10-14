@@ -268,7 +268,7 @@ class Ledger:
         if len(events) >= 10000:
             raise ValueError('ledger event limit')
         if type(operation_id) is not str or operation_id not in catalog.REGISTRY:
-            raise ValueError('unknown operation_id')
+            raise catalog.unknown_operation(operation_id)
         # Own the request snapshot. Caller/kernel mutation cannot rewrite the
         # request whose hash is checked after execution.
         _, normalized, identity, key = catalog.prepare(operation_id, inputs)

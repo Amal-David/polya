@@ -7,7 +7,7 @@ the installed checkout, not a stale wheel or an unmerged branch:
 git rev-parse HEAD
 python -m polya inspect artifact.png_bitplane
 python -m polya inspect crypto.openssl_scan
-python -m polya inspect mechanism.scan
+python -m polya inspect mechanism.recipe_scan
 python -m examples.crypto_frontier_demo
 ```
 

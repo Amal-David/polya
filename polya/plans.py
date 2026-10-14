@@ -32,8 +32,8 @@ class Reference(Spec):
 
 
 class Step(Spec):
-    operation_id: Literal['artifact.png_bitplane', 'grid.read', 'encoding.symbol_map',
-                          'symbols.to_bits', 'bits.invert', 'bits.pack', 'bytes.slice']
+    operation_id: Literal['artifact.png_bitplane', 'grid.read', 'text.symbol_map',
+                          'bits.from_symbols', 'bits.invert', 'bits.pack', 'bytes.slice']
     bindings: dict[str, Reference] = Field(min_length=1, max_length=4)
     inputs: dict = Field(default_factory=dict)
     rationale: str = Field(min_length=1, max_length=512)
@@ -82,14 +82,14 @@ _PORTS = {
     'artifact.png_bitplane': ({'png_base64': 'png'}, {'text': 'bits', 'width': 'int', 'height': 'int'}),
     'grid.read': ({'text': 'stream', 'rows': 'int', 'columns': 'int'},
                   {'text': 'stream', 'rows': 'int', 'columns': 'int'}),
-    'encoding.symbol_map': ({'text': 'symbols'}, {'text': 'symbols'}),
-    'symbols.to_bits': ({'text': 'symbols'}, {'text': 'bits'}),
+    'text.symbol_map': ({'text': 'symbols'}, {'text': 'symbols'}),
+    'bits.from_symbols': ({'text': 'symbols'}, {'text': 'bits'}),
     'bits.invert': ({'text': 'bits'}, {'text': 'bits'}),
     'bits.pack': ({'text': 'bits'}, {'hex': 'bytes'}),
     'bytes.slice': ({'value_hex': 'bytes'}, {'hex': 'bytes'}),
 }
 _PRIMARY = {'artifact.png_bitplane': 'png_base64', 'grid.read': 'text',
-            'encoding.symbol_map': 'text', 'symbols.to_bits': 'text',
+            'text.symbol_map': 'text', 'bits.from_symbols': 'text',
             'bits.invert': 'text', 'bits.pack': 'text', 'bytes.slice': 'value_hex'}
 _DUMMIES = {'png': 'AA==', 'symbols': '', 'bits': '', 'bytes': '00' * 16384, 'int': 1}
 
@@ -195,10 +195,10 @@ def _derivation(node: Node, choice: int, step: Step, args: dict, result: dict) -
     elif op == 'grid.read':
         mapping = {'kind': 'grid_permutation', **{k: args[k] for k in ('rows', 'columns', 'order', 'reverse')}}
         loss = {'kind': 'none'}
-    elif op == 'encoding.symbol_map':
+    elif op == 'text.symbol_map':
         mapping = {'kind': 'symbol_expansion', 'mapping': args['mapping']}
         loss = {'kind': 'explicit_symbol_mapping', 'dropped_offsets': result['dropped_offsets']}
-    elif op == 'symbols.to_bits':
+    elif op == 'bits.from_symbols':
         mapping = {'kind': 'identity_offsets', 'zero': args['zero'], 'one': args['one']}
         loss = {'kind': 'none'}
     elif op == 'bits.invert':

@@ -1,7 +1,9 @@
 import itertools
+import re
 import unittest
 
 from polya import find, run
+from polya.catalog import REGISTRY
 from polya.primitives import candidate_expand
 
 
@@ -9,9 +11,17 @@ class PrimitiveTests(unittest.TestCase):
     def test_discovery_and_exact_contract(self):
         found = find("independent factor graph budget")
         self.assertEqual(found[0]["operation_id"], "constraints.plan")
-        contract = find(operation_id="crypto.openssl.decrypt")
+        contract = find(operation_id="crypto.openssl_decrypt")
         self.assertIn("digest", contract["input_schema"]["required"])
         self.assertEqual(find("zxqv_unrecognizable"), [])
+
+    def test_operation_ids_are_family_dot_snake_case(self):
+        for operation_id in REGISTRY:
+            self.assertRegex(operation_id, r"^[a-z][a-z0-9]*\.[a-z][a-z0-9_]*$")
+        self.assertEqual(len(REGISTRY), 43)
+        with self.assertRaisesRegex(ValueError, re.escape(
+                "unknown operation_id 'crypto.bip39.seed'; renamed to 'crypto.bip39_seed' in 0.3.0")):
+            run("crypto.bip39.seed", {"mnemonic": "abandon", "passphrase": ""})
 
     def test_strict_decoding(self):
         self.assertEqual(run("bytes.decode", {"encoding": "base64", "value": "AAH/"})["result"]["hex"], "0001ff")

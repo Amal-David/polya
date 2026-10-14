@@ -23,12 +23,12 @@ def main():
     routes = [step('grid.traverse', dict(rows=14, columns=14, route=route, corner=corner),
                    rationale='The published clue is a square; enumerate both spiral directions from every corner.')
               for route in ['spiral_cw','spiral_ccw'] for corner in ['tl','tr','bl','br']]
-    polarity = [step('encoding.symbol_map', {'mapping':m}, rationale='Test both binary color polarities.')
+    polarity = [step('text.symbol_map', {'mapping':m}, rationale='Test both binary color polarities.')
                 for m in ({'0':'0','1':'1'},{'0':'1','1':'0'})]
-    packing = [step('encoding.radix_bytes', dict(radix=2,mode='groups',group_width=8,
+    packing = [step('bytes.from_radix', dict(radix=2,mode='groups',group_width=8,
                     bit_order=order,tail='report'), rationale='ASCII bytes are suggested by the known challenge website.')
                for order in ['msb','lsb']]
-    found = run('mechanism.scan', dict(source=grid, stages=[routes,polarity,packing],
+    found = run('mechanism.recipe_scan', dict(source=grid, stages=[routes,polarity,packing],
           checkpoint=dict(kind='prefix',value='gsmg.io/',source='Public challenge hostname; not the full hidden path'),
           max_work=100000,max_trials=64))['result']
     assert found['complete'] and len(found['trials']) == 32
@@ -36,8 +36,8 @@ def main():
     messages = []
     for item in fixture['gsmg_decimal']:
         mapping = {chr(97+i):str(i+1) for i in range(9)} | {'o':'0'}
-        digits = run('encoding.symbol_map',dict(text=item['symbols'],mapping=mapping))['result']['text']
-        recovered = run('encoding.radix_bytes',dict(text=digits,radix=10))['result']['text']
+        digits = run('text.symbol_map',dict(text=item['symbols'],mapping=mapping))['result']['text']
+        recovered = run('bytes.from_radix',dict(text=digits,radix=10))['result']['text']
         assert recovered == item['expected']
         messages.append(recovered)
     item = fixture['kryptos_k1']

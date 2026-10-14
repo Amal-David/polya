@@ -2,7 +2,7 @@
 
 `mechanism.plan_scan` executes a caller-declared finite grammar through typed
 references. It does not infer the grammar, rank interpretations, execute arbitrary
-code, browse files/URLs, or discover a puzzle solution. Existing `mechanism.scan`
+code, browse files/URLs, or discover a puzzle solution. Existing `mechanism.recipe_scan`
 and all primitive operations remain compatible. The new endpoint, including its
 resume rules, is distinct from that legacy string-only recipe interface.
 
@@ -52,15 +52,15 @@ The initial bounded vocabulary is intentionally small:
 | --- | --- | --- |
 | `artifact.png_bitplane` | `png_base64: png` | `text: bits`, `width/height: int` |
 | `grid.read` | `text: bits or symbols` | same text kind, `rows/columns: int` |
-| `encoding.symbol_map` | `text: symbols` | `text: symbols` |
-| `symbols.to_bits` | `text: symbols` | `text: bits` |
+| `text.symbol_map` | `text: symbols` | `text: symbols` |
+| `bits.from_symbols` | `text: symbols` | `text: bits` |
 | `bits.invert` | `text: bits` | `text: bits` |
 | `bits.pack` | `text: bits` | `hex: bytes` |
 | `bytes.slice` | `value_hex: bytes` | `hex: bytes` |
 
 Grid rows/columns can be explicit constants or integer references to PNG
 height/width. No other constant fields accept references. A symbol mapping that
-happens to produce `0` and `1` is still symbols until `symbols.to_bits` explicitly
+happens to produce `0` and `1` is still symbols until `bits.from_symbols` explicitly
 assigns those meanings. There is no implicit text decode, normalization, integer
 conversion, channel conversion, truncation or padding.
 
@@ -115,8 +115,8 @@ bytes. The equality-pattern target and existing calibrated scanner each accept
 at most 4,096 candidate bytes:
 use an explicit `bytes.slice` when the proposed interpretation requires selection,
 or keep the full bytes for a direct target. Never silently drop an oversized
-password. Existing `encoding.radix_bytes` limits are unchanged. The optional
-`encoding.symbol_map` node also retains its existing 16,384-codepoint limit;
+password. Existing `bytes.from_radix` limits are unchanged. The optional
+`text.symbol_map` node also retains its existing 16,384-codepoint limit;
 use the new explicit two-symbol conversion for full-size binary alphabets.
 
 The plan itself is limited to 900,000 canonical JSON bytes; the public operation

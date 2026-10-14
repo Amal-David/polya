@@ -63,7 +63,7 @@ polya mcp
 | Area | Operation IDs |
 | --- | --- |
 | Basic transforms | `bytes.decode`, `text.profile`, `grid.read`, `candidate.expand` |
-| Crypto and verification | `crypto.openssl.inspect`, `crypto.openssl.decrypt`, `crypto.bip39.seed`, `verify.sha256`, `evidence.padding_null` |
+| Crypto and verification | `crypto.openssl_inspect`, `crypto.openssl_decrypt`, `crypto.bip39_seed`, `verify.sha256`, `evidence.padding_null` |
 | Finite tables | `constraints.plan`, `constraints.solve` |
 | Symbolic reasoning | `symbolic.solve`, `symbolic.analyze`, `symbolic.verify`, `symbolic.export`, `hypotheses.compare` |
 | Automata | `automata.from_runs`, `automata.simulate`, `automata.distinguish`, `automata.learn_local` |

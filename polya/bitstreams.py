@@ -153,7 +153,7 @@ def operations(make):
              dropped_offsets=Annotated[list[bit_offset], Field(max_length=7)],
              consumed_bits=Annotated[int, Field(ge=0, le=MAX_BITS)],
              bit_order=Literal["msb", "lsb"], tail=Literal["reject", "drop"], scope=str),
-        make("symbols.to_bits", "Map an explicit two-symbol alphabet to bits",
+        make("bits.from_symbols", "Map an explicit two-symbol alphabet to bits",
              "Map distinct single-code-point zero and one symbols without changing or dropping input.",
              SymbolsSpec, symbols_to_bits, "symbols binary alphabet mapping bits unicode offsets",
              SCOPE + " Every source code point must be one of the two explicitly declared symbols.",

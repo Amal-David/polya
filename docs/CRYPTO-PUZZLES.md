@@ -9,13 +9,13 @@ state-machine traversal does not make an unknown AES password less unknown.
 | Need | Operation |
 | --- | --- |
 | Read a transcribed symbol grid from different corners and in either spiral direction | `grid.traverse` |
-| Try explicit symbol-to-digit mappings and preserve deletions | `encoding.symbol_map` |
-| Distinguish grouped digits from a whole decimal/binary/hex integer | `encoding.radix_bytes` |
+| Try explicit symbol-to-digit mappings and preserve deletions | `text.symbol_map` |
+| Distinguish grouped digits from a whole decimal/binary/hex integer | `bytes.from_radix` |
 | Apply Vigenere, Beaufort or variant Beaufort under an exact alphabet | `cipher.polyalphabetic` |
 | Apply Bifid under a specified square, period and direction | `cipher.bifid` |
 | Read a caller-supplied prefix-free straddling checkerboard | `cipher.checkerboard` |
 | Recover constrained key slots or contradict periodic-key hypotheses from cribs | `cipher.periodic_cribs` |
-| Compare a finite product of complete decoding recipes without rewriting their common prefixes | `mechanism.scan` |
+| Compare a finite product of complete decoding recipes without rewriting their common prefixes | `mechanism.recipe_scan` |
 
 All eight operations use the existing contracts, receipts, CLI and MCP tools.
 No network service, wallet transaction, arbitrary code, or cipher backend chosen
@@ -23,7 +23,7 @@ by executable strings has been added. Other runtime/worker/Rust APIs are unchang
 
 ```bash
 python -m polya find gsmg
-python -m polya inspect mechanism.scan
+python -m polya inspect mechanism.recipe_scan
 python -m polya inspect cipher.periodic_cribs
 python -m examples.cryptic_demo
 ```
@@ -34,7 +34,7 @@ constants. Historical fixtures live separately in `examples/data/`.
 
 ## Search mechanisms, not only guessed answers
 
-`mechanism.scan` accepts up to six stages, each containing explicit alternatives.
+`mechanism.recipe_scan` accepts up to six stages, each containing explicit alternatives.
 It enumerates the product in stable order. The agent supplies a rationale for each
 alternative and an external checkpoint. It can test a prefix, exact text or the
 SHA-256 of the UTF-8 output. A checkpoint is a filter, not an authenticated oracle.
@@ -59,7 +59,7 @@ output and step trace. The trace reports dropped-character counts and leftover
 digits where relevant; it is NOT a full source-dependency proof.
 
 The recipe allowlist also admits existing `bytes.decode` and
-`crypto.openssl.decrypt` operations, under their original explicit contracts.
+`crypto.openssl_decrypt` operations, under their original explicit contracts.
 Do not use padding as a final checkpoint or treat an arbitrary readable substring
 as independent confirmation. This layer does not add GPU brute force.
 

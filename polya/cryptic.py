@@ -291,9 +291,9 @@ def operations(make):
     return [
         op("grid.traverse","Traverse a grid including corner-aware spirals",RouteSpec,route_text,
            "spiral grid route geometry transposition extraction gsmg",SCOPE,text=str,source_offsets=list[int],source_length=int,scope=str),
-        op("encoding.symbol_map","Map symbols without silent deletion",MapSpec,symbol_map,
+        op("text.symbol_map","Map symbols without silent deletion",MapSpec,symbol_map,
            "binary mapping substitute symbols digits a1z26 salphaseion",SCOPE,text=str,source_offsets=list[int],dropped_offsets=list[int],source_length=int,scope=str),
-        op("encoding.radix_bytes","Decode radix groups or a whole integer",RadixSpec,radix_bytes,
+        op("bytes.from_radix","Decode radix groups or a whole integer",RadixSpec,radix_bytes,
            "binary decimal hex ascii bytes integer radix endian packing",SCOPE,hex=str,text=str|None,byte_count=int,
            consumed_digits=int,trailing_digits=str,leading_zero_digits=int,scope=str),
         op("cipher.polyalphabetic","Transform Vigenere or Beaufort with an explicit alphabet",AlphabetSpec,polyalphabetic,

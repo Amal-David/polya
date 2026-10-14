@@ -16,9 +16,9 @@ from .cryptic import Spec, MAX_TEXT
 
 # Only deterministic string-to-string operations. No recursion, file or network
 # tools, model execution, random sampling, or caller-provided executable code.
-ALLOWED = frozenset({"grid.traverse", "encoding.symbol_map", "encoding.radix_bytes",
+ALLOWED = frozenset({"grid.traverse", "text.symbol_map", "bytes.from_radix",
     "cipher.polyalphabetic", "cipher.bifid", "cipher.checkerboard",
-    "bytes.decode", "crypto.openssl.decrypt"})
+    "bytes.decode", "crypto.openssl_decrypt"})
 
 
 class Step(Spec):
@@ -60,7 +60,7 @@ def _indexes(ordinal: int, sizes: list[int]) -> list[int]:
 def scan(source: str, stages: list[list[dict]], checkpoint: dict, start: int = 0,
          max_trials: int = 256, max_matches: int = 8, max_work: int = 500000,
          timeout_ms: int = 5000) -> dict:
-    from .catalog import REGISTRY
+    from .catalog import REGISTRY, RENAMED_OPERATION_IDS, unknown_operation
     p = ScanSpec(source=source, stages=stages, checkpoint=checkpoint, start=start,
                  max_trials=max_trials, max_matches=max_matches, max_work=max_work, timeout_ms=timeout_ms)
     sizes = [len(stage) for stage in p.stages]
@@ -73,6 +73,8 @@ def scan(source: str, stages: list[list[dict]], checkpoint: dict, start: int = 0
         raise ValueError("recipe definitions exceed 100000 characters")
     for stage in p.stages:
         for step in stage:
+            if step.operation_id in RENAMED_OPERATION_IDS:
+                raise unknown_operation(step.operation_id)
             if step.operation_id not in ALLOWED:
                 raise ValueError("operation is not in the deterministic recipe allowlist")
             operation = REGISTRY[step.operation_id]
@@ -188,7 +190,7 @@ def scan(source: str, stages: list[list[dict]], checkpoint: dict, start: int = 0
 
 
 def operations(make):
-    return [make("mechanism.scan","Search a finite product of decoding recipes",
+    return [make("mechanism.recipe_scan","Search a finite product of decoding recipes",
         "Preserve recipe paths, reuse identical intermediate work and test an explicit external checkpoint.",
         ScanSpec,scan,"recipe mechanism hypothesis pipeline decoding search shared prefix classical cipher",
         "Checkpoint matches in caller-declared recipes only; no automatic solution or completeness beyond stated range.",

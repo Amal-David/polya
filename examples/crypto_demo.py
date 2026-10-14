@@ -18,18 +18,18 @@ def demonstrate():
                     attempts += 1
                     inputs = {"blob_hex": fixture["positive"]["blob_hex"],
                               "password_hex": candidate["text"].encode("utf8").hex(), "digest": digest}
-                    decrypted = session.run("crypto.openssl.decrypt", inputs)["result"]
+                    decrypted = session.run("crypto.openssl_decrypt", inputs)["result"]
                     if decrypted["padding_valid"]:
                         padding_hits += 1
                         checked = run("verify.sha256", {"candidate_hex": decrypted["plaintext_hex"],
                                       "expected_sha256": fixture["expected_sha256"]})["result"]
                         if checked["match"]:
                             matches.append({"candidate_index": candidate["index"], "digest": digest})
-            control = session.run("crypto.openssl.decrypt", {"blob_hex": fixture["decoy"]["blob_hex"],
+            control = session.run("crypto.openssl_decrypt", {"blob_hex": fixture["decoy"]["blob_hex"],
                          "password_hex": fixture["known_passphrase"].encode().hex(), "digest": "sha256"})["result"]
             decoy_check = run("verify.sha256", {"candidate_hex": control["plaintext_hex"],
                               "expected_sha256": fixture["expected_sha256"]})["result"]
-            replay = session.run("crypto.openssl.decrypt", inputs)
+            replay = session.run("crypto.openssl_decrypt", inputs)
     return {"fixture_kind": fixture["fixture_kind"], "candidate_assignments": page["total_assignments"],
             "attempts": attempts, "padding_signals": padding_hits, "exact_matches": matches,
             "decoy_padding_valid": control["padding_valid"], "decoy_target_match": decoy_check["match"],

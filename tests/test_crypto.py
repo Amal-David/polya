@@ -25,7 +25,7 @@ class CryptoTests(unittest.TestCase):
         # 24 copies of index 0 encode 256 zero entropy bits + zero checksum.
         # The actual 8-bit checksum is nonzero, so this is intentionally invalid.
         self.assertNotEqual(hashlib.sha256(bytes(32)).digest()[0], 0)
-        result = run("crypto.bip39.seed", {"mnemonic": " ".join(["abandon"] * 24), "passphrase": ""})["result"]
+        result = run("crypto.bip39_seed", {"mnemonic": " ".join(["abandon"] * 24), "passphrase": ""})["result"]
         self.assertEqual(len(result["seed_hex"]), 128)
         self.assertFalse(result["checksum_checked"])
 
@@ -39,7 +39,7 @@ class CryptoTests(unittest.TestCase):
                 produced = subprocess.run(["openssl", "enc", "-aes-256-cbc", "-salt", "-md", digest,
                                            "-pass", "pass:" + password], input=message,
                                           capture_output=True, check=True, timeout=10).stdout
-                result = run("crypto.openssl.decrypt", {"blob_hex": produced.hex(),
+                result = run("crypto.openssl_decrypt", {"blob_hex": produced.hex(),
                              "password_hex": password.encode().hex(), "digest": digest})["result"]
                 self.assertTrue(result["padding_valid"])
                 self.assertEqual(bytes.fromhex(result["plaintext_hex"]), message)
@@ -48,7 +48,7 @@ class CryptoTests(unittest.TestCase):
                              "expected_sha256": hashlib.sha256(b"different intended answer").hexdigest()})["result"]
                 self.assertFalse(target["match"])
                 wrong_digest = "sha256" if digest == "md5" else "md5"
-                wrong = run("crypto.openssl.decrypt", {"blob_hex": produced.hex(),
+                wrong = run("crypto.openssl_decrypt", {"blob_hex": produced.hex(),
                             "password_hex": password.encode().hex(), "digest": wrong_digest})["result"]
                 # Wrong keys may legitimately pass padding. Never assert otherwise.
                 self.assertNotEqual(wrong["plaintext_hex"], message.hex())
@@ -57,7 +57,7 @@ class CryptoTests(unittest.TestCase):
     def test_malformed_framing_is_error(self):
         for blob in (b"", b"Salted__" + bytes(8), b"Salted__" + bytes(9)):
             with self.subTest(blob=blob), self.assertRaises(ValueError):
-                run("crypto.openssl.inspect", {"blob_hex": blob.hex()})
+                run("crypto.openssl_inspect", {"blob_hex": blob.hex()})
 
     def test_padding_adversarial_cases(self):
         self.assertEqual(pkcs7_info(b"a"*15+b"\x01"), (True, 1))
