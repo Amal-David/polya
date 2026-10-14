@@ -33,6 +33,7 @@ Issues = "https://github.com/Amal-David/polya/issues"
 Documentation = "https://github.com/Amal-David/polya/tree/main/docs"
 
 [project.optional-dependencies]
+imaging = ["pillow>=11.3,<14"]
 z3 = ["z3-solver>=4.13,<5"]
 cpsat = ["ortools>=9.12,<10"]
 solvers = ["z3-solver>=4.13,<5", "ortools>=9.12,<10"]

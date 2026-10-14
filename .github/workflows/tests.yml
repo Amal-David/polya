@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[test,z3]'
+      - run: python -m pip install -e '.[test,z3,imaging]'
       - run: python -m pip check
       - run: python -m polya doctor
       - run: python -m pytest -q -rs --junitxml=core-tests.xml
@@ -49,7 +49,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[test,solvers,learning]'
+      - run: python -m pip install -e '.[test,solvers,learning,imaging]'
       - run: python -m pip check
       - name: Require actual optional backends
         run: python -c 'import ortools, aalpy; from puzzleops.native_z3 import native_version; assert native_version()'
@@ -69,7 +69,7 @@ jobs:
         with:
           python-version: '3.15'
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[test,z3,learning]'
+      - run: python -m pip install -e '.[test,z3,learning,imaging]'
       - run: python -m pip check
       - name: Require AALpy and native Z3 on the actual 3.15 interpreter
         run: python -c 'import sys,aalpy; from puzzleops.native_z3 import native_version; assert sys.version_info[:2] == (3,15); assert native_version()'
@@ -89,7 +89,7 @@ jobs:
         with:
           python-version: '3.15t'
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[test,z3]'
+      - run: python -m pip install -e '.[test,z3,imaging]'
       - run: python -m pip check
       - name: Verify the real build without forcing an unsafe extension override
         run: python -c 'import sys,sysconfig; assert sys.version_info[:2] == (3,15); assert sysconfig.get_config_var("Py_GIL_DISABLED") == 1; assert not sys._is_gil_enabled()'
@@ -112,7 +112,7 @@ jobs:
           python-version: '3.15'
       - run: python -m pip install --upgrade pip build
       - run: python -m build
-      - run: python -m pip install '.[test,z3]'
+      - run: python -m pip install '.[test,z3,imaging]'
       - run: python -m pip install --force-reinstall --no-deps dist/*.whl
       - name: Exercise the installed artifact, not the source checkout
         run: |
@@ -127,3 +127,18 @@ jobs:
             dist/*
             runtime-benchmark.json
             runtime.prof
+  unsupported-z3-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e '.[test]' 'z3-solver==4.8.12.0'
+      - name: Require the actual unsupported version
+        run: python -c 'from importlib.metadata import version; assert version("z3-solver") == "4.8.12.0"'
+      - name: Verify explicit rejection, not unsupported solving
+        run: python -m pytest tests/test_legacy_z3_boundary.py -q -rs
