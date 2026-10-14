@@ -59,11 +59,19 @@ for raw in sys.stdin.buffer:
 
 @pytest.fixture
 def fake_backend(tmp_path, monkeypatch):
-    file=tmp_path/'jacobian-mcp'
-    file.write_text(MOCK.format(python=sys.executable), encoding='utf-8')
-    file.chmod(file.stat().st_mode | stat.S_IXUSR)
-    monkeypatch.setenv('POLYA_JACOBIAN_MCP',str(file))
-    monkeypatch.delenv('FAKE_JACOBIAN_MODE',raising=False)
+    # Windows cannot CreateProcess an extensionless Python shebang. Use a
+    # trusted .cmd test shim there, while production uses jacobian-mcp.exe.
+    if os.name == 'nt':
+        script = tmp_path / 'fake_jacobian.py'
+        script.write_text(MOCK.format(python=sys.executable), encoding='utf-8')
+        file = tmp_path / 'jacobian-mcp.cmd'
+        file.write_text(f'@echo off\n"{sys.executable}" "{script}"\n', encoding='utf-8')
+    else:
+        file = tmp_path / 'jacobian-mcp'
+        file.write_text(MOCK.format(python=sys.executable), encoding='utf-8')
+        file.chmod(file.stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setenv('POLYA_JACOBIAN_MCP', str(file))
+    monkeypatch.delenv('FAKE_JACOBIAN_MODE', raising=False)
     return file
 
 
