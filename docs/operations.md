@@ -1,8 +1,8 @@
 # Operation reference
 
-Polya registers 46 operations in 19 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
+Polya registers 53 operations in 23 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
 
-Families: [artifact](#artifact), [automata](#automata), [backends](#backends), [bits](#bits), [bytes](#bytes), [candidate](#candidate), [cipher](#cipher), [constraints](#constraints), [crypto](#crypto), [evidence](#evidence), [grid](#grid), [hypotheses](#hypotheses), [jacobian](#jacobian), [mechanism](#mechanism), [pattern](#pattern), [specialist](#specialist), [symbolic](#symbolic), [text](#text), [verify](#verify).
+Families: [artifact](#artifact), [automata](#automata), [backends](#backends), [bits](#bits), [bytes](#bytes), [candidate](#candidate), [casepack](#casepack), [cipher](#cipher), [constraints](#constraints), [council](#council), [crypto](#crypto), [evidence](#evidence), [experiment](#experiment), [grid](#grid), [hypotheses](#hypotheses), [jacobian](#jacobian), [mechanism](#mechanism), [pattern](#pattern), [specialist](#specialist), [symbolic](#symbolic), [text](#text), [utility](#utility), [verify](#verify).
 
 ## artifact
 
@@ -467,6 +467,118 @@ Example input:
 }
 ```
 
+## casepack
+
+### `casepack.inspect`
+
+**Inspect an evidence-grounded investigation packet.** Version 1; cacheable: yes.
+
+Verify artifact hashes; keep missing evidence, hypotheses, retractions and questions explicit in a compact handoff.
+
+Postcondition: Consistency of caller-supplied evidence, not authenticity or a solve.
+
+Limits:
+
+- 32 artifacts,64 statements,8 controls,900KB total.
+
+Required inputs:
+
+- `case`: CasePack
+
+Output fields: `case_id`, `manifest_sha256`, `ready`, `blocking_artifacts`, `artifacts`, `question`, `statements`, `open_questions`, `calibration_count`, `scope`.
+
+Example input:
+
+```json
+{
+  "case": {
+    "id": "public-calibration",
+    "question": "Can this environment replay the known control?",
+    "artifacts": [
+      {
+        "id": "cipher",
+        "encoding": "utf8",
+        "content": "LXFOPVEFRNHR",
+        "sha256": "8780596527ca581b1cc0b3a355de043ba9538e73c3ed4321c9505d19d4d528f7",
+        "source": "public Vigenere control"
+      }
+    ],
+    "calibrations": [
+      {
+        "id": "known-answer",
+        "operation_id": "cipher.polyalphabetic",
+        "inputs": {
+          "key": "LEMON"
+        },
+        "artifact_bindings": {
+          "text": "cipher"
+        },
+        "output_field": "text",
+        "expected_value_sha256": "07518591346f736bb4ff75689b65b29f477a0a76b361cfaf33e88637835ce70b",
+        "source": "known plaintext"
+      }
+    ]
+  }
+}
+```
+
+### `casepack.replay`
+
+**Replay known calibration checkpoints.** Version 1; cacheable: no.
+
+Check required evidence first, then execute bounded allowlisted controls; no upstream code or network.
+
+Postcondition: Only declared known controls tested; no conclusion about unknown answers.
+
+Limits:
+
+- 8 allowlisted calls,shared cooperative 1..60000ms deadline.
+
+Required inputs:
+
+- `case`: CasePack
+
+Optional inputs:
+
+- `timeout_ms`: integer, default `5000`
+
+Output fields: `status`, `inspection`, `calibrations`, `complete`, `scope`.
+
+Example input:
+
+```json
+{
+  "case": {
+    "id": "public-calibration",
+    "question": "Can this environment replay the known control?",
+    "artifacts": [
+      {
+        "id": "cipher",
+        "encoding": "utf8",
+        "content": "LXFOPVEFRNHR",
+        "sha256": "8780596527ca581b1cc0b3a355de043ba9538e73c3ed4321c9505d19d4d528f7",
+        "source": "public Vigenere control"
+      }
+    ],
+    "calibrations": [
+      {
+        "id": "known-answer",
+        "operation_id": "cipher.polyalphabetic",
+        "inputs": {
+          "key": "LEMON"
+        },
+        "artifact_bindings": {
+          "text": "cipher"
+        },
+        "output_field": "text",
+        "expected_value_sha256": "07518591346f736bb4ff75689b65b29f477a0a76b361cfaf33e88637835ce70b",
+        "source": "known plaintext"
+      }
+    ]
+  }
+}
+```
+
 ## cipher
 
 ### `cipher.bifid`
@@ -543,6 +655,38 @@ Optional inputs:
 - `variant`: one of `"vigenere"`, `"beaufort"`, `"variant_beaufort"`, default `"vigenere"`
 
 Output fields: `periods`, `crib_equations`, `scope`.
+
+### `cipher.periodic_search`
+
+**Propose unknown periodic-cipher keys.** Version 1; cacheable: no.
+
+Score all column shifts against caller-supplied reference text, then retain a bounded beam and re-encrypt every emitted candidate.
+
+Postcondition: Heuristic key/plaintext proposals only; exact re-encryption does not certify intended meaning.
+
+Limits:
+
+- 8192 ciphertext symbols,16 periods<=32,64-symbol alphabet,128 beam,16 results
+- work/time bounds.
+
+Required inputs:
+
+- `text`: string
+- `reference_text`: string
+- `reference_source`: string
+- `periods`: array of integer
+
+Optional inputs:
+
+- `alphabet`: string, default `"ABCDEFGHIJKLMNOPQRSTUVWXYZ"`
+- `variant`: one of `"vigenere"`, `"beaufort"`, `"variant_beaufort"`, default `"vigenere"`
+- `shifts_per_column`: integer, default `3`
+- `beam_width`: integer, default `32`
+- `top_k`: integer, default `5`
+- `max_work`: integer, default `2000000`
+- `timeout_ms`: integer, default `5000`
+
+Output fields: `candidates`, `completed_periods`, `candidate_keys_evaluated`, `work_units`, `termination_reason`, `complete_declared_search`, `full_keyspace_exhausted`, `reference_source`, `scope`.
 
 ### `cipher.polyalphabetic`
 
@@ -658,6 +802,60 @@ Example input:
   ]
 }
 ```
+
+## council
+
+### `council.prepare`
+
+**Prepare independent council tasks.** Version 1; cacheable: yes.
+
+Prepare four blind role tasks; the calling host invokes agents, not this operation.
+
+Postcondition: Job contracts only; no agent invocation.
+
+Limits:
+
+- 4 roles
+- 12000-character brief
+- 64 bounded source references.
+
+Required inputs:
+
+- `brief`: string
+- `source_refs`: array of string
+
+Output fields: `council_id`, `jobs`, `scope`.
+
+Example input:
+
+```json
+{
+  "brief": "Find why complete puzzle experiments need custom glue.",
+  "source_refs": [
+    "repo@reviewed-head"
+  ]
+}
+```
+
+### `council.prioritize`
+
+**Prioritize cross-critiqued feature proposals.** Version 1; cacheable: yes.
+
+Keep objections, dependencies and missing reviews visible; no majority vote proves a claim.
+
+Postcondition: Advisory ordering of supplied estimates, not independent agreement or approval.
+
+Limits:
+
+- 4 reports/phase,8 proposals/role,32 objections/role.
+
+Required inputs:
+
+- `proposals`: array of Proposal
+- `critiques`: array of Critique
+- `source_refs`: array of string
+
+Output fields: `features`, `complete_review`, `missing_feature_reviews`, `missing_proposals`, `missing_critiques`, `scope`.
 
 ## crypto
 
@@ -795,6 +993,63 @@ Optional inputs:
 - `fixed_padding_bytes`: integer or null, default `null`
 
 Output fields: `probability_numerator`, `probability_denominator`, `probability`, `trials`, `expected_padding_hits`, `probability_scientific`, `expected_padding_hits_scientific`, `float_underflow`, `assumption`, `evidence_kind`.
+
+## experiment
+
+### `experiment.rank_tests`
+
+**Choose a discriminating next experiment.** Version 1; cacheable: yes.
+
+Rank explicit predicted disagreements per cost; preserve missing predictions instead of treating them as evidence.
+
+Postcondition: Conditional test ranking, not proof or measured chance of solving.
+
+Limits:
+
+- 64 hypotheses,128 tests
+- finite pairwise accounting.
+
+Required inputs:
+
+- `hypotheses`: array of Hypothesis
+- `tests`: array of Test
+
+Optional inputs:
+
+- `criterion`: one of `"separation_per_cost"`, `"separation"`, default `"separation_per_cost"`
+
+Output fields: `tests`, `next_test_id`, `status`, `weight_convention`, `scope`.
+
+Example input:
+
+```json
+{
+  "hypotheses": [
+    {
+      "id": "a",
+      "mechanism": "row reading",
+      "source": "clue"
+    },
+    {
+      "id": "b",
+      "mechanism": "column reading",
+      "source": "clue"
+    }
+  ],
+  "tests": [
+    {
+      "id": "first-symbol",
+      "question": "What is the first extracted symbol?",
+      "cost": 1,
+      "predictions": {
+        "a": "A",
+        "b": "B"
+      },
+      "source": "model predictions"
+    }
+  ]
+}
+```
 
 ## grid
 
@@ -1582,6 +1837,31 @@ Example input:
   }
 }
 ```
+
+## utility
+
+### `utility.compare_runs`
+
+**Compare matched agent investigation runs.** Version 1; cacheable: yes.
+
+Recompute answer correctness; account for missing runs, missing costs and false claims before comparing paired latency.
+
+Postcondition: Scoring supplied episodes only, not executing models or validating target provenance.
+
+Limits:
+
+- 200 tasks,3 conditions,600 episodes
+- exact-byte answer bounds.
+
+Required inputs:
+
+- `tasks`: array of Task
+- `conditions`: array of string
+- `model_id`: string
+- `budget`: Budget
+- `episodes`: array of Episode
+
+Output fields: `conditions`, `paired`, `metrics_are_runner_reported`, `scope`.
 
 ## verify
 

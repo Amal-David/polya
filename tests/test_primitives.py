@@ -19,7 +19,8 @@ class PrimitiveTests(unittest.TestCase):
         for operation_id in REGISTRY:
             self.assertRegex(operation_id, r"^[a-z][a-z0-9]*\.[a-z][a-z0-9_]*$")
         # Three deliberately added operations; retain the exact inventory assertion.
-        self.assertEqual(len(REGISTRY), 46)
+        self.assertEqual(len(REGISTRY), 53)
+        self.assertTrue({"council.prepare", "council.prioritize", "casepack.inspect", "casepack.replay", "experiment.rank_tests", "cipher.periodic_search", "utility.compare_runs"} <= set(REGISTRY))
         self.assertTrue({'mechanism.plan_inspect', 'text.encode', 'bytes.decode_text'} <= REGISTRY.keys())
 
     def test_renamed_operation_ids_execute_as_their_canonical_operation(self):
@@ -125,4 +126,3 @@ class PrimitiveTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
