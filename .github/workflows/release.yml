@@ -19,9 +19,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.13'
-      - name: Require the tag to match the package version
-        run: |
-          python -c "import polya, os, sys; tag = os.environ['GITHUB_REF_NAME']; sys.exit(0 if tag == 'v' + polya.__version__ else f'tag {tag} != v{polya.__version__}')"
+      - name: Require a tag ref, not a branch that happens to be named like one
+        run: test "$GITHUB_REF_TYPE" = tag
       - run: python -m pip install --upgrade pip build twine
       - run: python -m build
       - run: python -m twine check dist/*
@@ -29,6 +28,9 @@ jobs:
         run: |
           python -m venv /tmp/check && /tmp/check/bin/python -m pip install -q dist/*.whl
           /tmp/check/bin/polya run cipher.polyalphabetic --json '{"text":"LXFOPVEFRNHR","key":"LEMON","variant":"vigenere"}' --result-only | grep ATTACKATDAWN
+      - name: Require the tag to match the built distribution and polya.__version__
+        run: |
+          /tmp/check/bin/python -c "import os, sys, polya; from importlib.metadata import version; tag = os.environ['GITHUB_REF_NAME']; built = version('polya-puzzles'); sys.exit(0 if tag == 'v' + built == 'v' + polya.__version__ else f'tag {tag}, built {built}, polya.__version__ {polya.__version__}')"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
