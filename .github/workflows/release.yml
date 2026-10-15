@@ -1,0 +1,53 @@
+name: Release
+# Publishes polya-puzzles to PyPI through trusted publishing (no token stored here).
+# Trigger: push a tag v<version>, or run manually from that tag. The tag must
+# match the package version, and the build artifact is the only thing uploaded.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Require a tag ref, not a branch that happens to be named like one
+        run: test "$GITHUB_REF_TYPE" = tag
+      - run: python -m pip install --upgrade pip build twine
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - name: Install the wheel in a clean environment and run the quickstart
+        run: |
+          python -m venv /tmp/check && /tmp/check/bin/python -m pip install -q dist/*.whl
+          /tmp/check/bin/polya run cipher.polyalphabetic --json '{"text":"LXFOPVEFRNHR","key":"LEMON","variant":"vigenere"}' --result-only | grep ATTACKATDAWN
+      - name: Require the tag to match the built distribution and polya.__version__
+        run: |
+          /tmp/check/bin/python -c "import os, sys, polya; from importlib.metadata import version; tag = os.environ['GITHUB_REF_NAME']; built = version('polya-puzzles'); sys.exit(0 if tag == 'v' + built == 'v' + polya.__version__ else f'tag {tag}, built {built}, polya.__version__ {polya.__version__}')"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/polya-puzzles/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
