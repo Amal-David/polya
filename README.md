@@ -61,8 +61,9 @@ assert result["text"] == "ATTACKATDAWN"
 
 ## Use with agents
 
-Run `polya mcp` as a local stdio server. It exposes `puzzle.find` to search for or
-inspect an operation, and `puzzle.run` to execute one. See [MCP](docs/agents/mcp.md),
+Run `polya mcp` as a local stdio server, or deploy the included
+[remote HTTPS adapter](docs/agents/mcp.md#remote-https-on-render) to Render. Both expose
+`puzzle.find` to search for or inspect an operation, and `puzzle.run` to execute one. See [MCP](docs/agents/mcp.md),
 [agent setup](docs/agents/setup.md) and [investigating puzzles](docs/agents/investigating.md).
 
 ## What it covers
