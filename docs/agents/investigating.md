@@ -39,6 +39,13 @@ binary candidate outputs to exact target checks rather than English filters. Use
 [recipe search](../guides/ciphers.md) for string recipes. Verify that you are on
 the installed checkout (`git rev-parse HEAD`) and not a stale wheel.
 
+For multi-stage experiments, use `mechanism.plan_inspect` before `mechanism.plan_scan`.
+A structural `valid` result is not a calibration pass. Use explicit text/byte
+conversions; prefer `linear_plan` when only sequential references are needed.
+See [compound workflows](agent-workflows.md). Adapt returned examples freely;
+discovery returns detached copies. MCP operational failures carry `isError` and
+an action hint; do not retry an absent dependency as though it were a wrong key.
+
 When a capability is missing, report the exact failed request and the output you
 expected. Those reports set the development backlog.
 

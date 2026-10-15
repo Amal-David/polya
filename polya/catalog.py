@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 import difflib
 import hashlib
@@ -115,6 +116,8 @@ class Operation:
     version: str = "1"
     cacheable: bool = True
     example: dict | None = None
+    execution_error_statuses: tuple[str, ...] = ()
+    recovery_hint: str | None = None
 
     def contract(self):
         return {"operation_id": self.operation_id, "version": self.version,
@@ -122,17 +125,21 @@ class Operation:
                 "input_schema": self.request.model_json_schema(),
                 "output_schema": self.result.model_json_schema() if self.result else {"type": "object"},
                 "postcondition": self.postcondition, "limits": self.limits,
-                "cache_policy": "exact_request" if self.cacheable else "never", "example": self.example}
+                "cache_policy": "exact_request" if self.cacheable else "never", "example": deepcopy(self.example),
+                "execution_error_statuses": list(self.execution_error_statuses),
+                "recovery_hint": self.recovery_hint}
 
 
 class ValidationError(ValueError):
     """Input rejection without model class names; named so error_type stays ValidationError."""
 
 
-def _op(operation_id, title, description, request, kernel, terms, postcondition, limits, *, cacheable=True, example=None, **result_fields):
+def _op(operation_id, title, description, request, kernel, terms, postcondition, limits, *, cacheable=True, example=None,
+        execution_error_statuses=(), recovery_hint=None, **result_fields):
     result = output_model(operation_id.replace(".", "_") + "_result", **result_fields) if result_fields else None
     return Operation(operation_id, title, description, request, result, kernel, terms, postcondition, limits,
-                     cacheable=cacheable, example=example)
+                     cacheable=cacheable, example=deepcopy(example),
+                     execution_error_statuses=tuple(execution_error_statuses), recovery_hint=recovery_hint)
 
 
 OPS = [
@@ -216,6 +223,8 @@ from .proposals import operations as proposal_ops
 OPS.extend(proposal_ops(_op))
 from .equality_patterns import operations as equality_ops
 OPS.extend(equality_ops(_op))
+from .textcodecs import operations as codec_ops
+OPS.extend(codec_ops(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 
 # Pre-0.3.0 operation IDs; each still executes as an alias and results report the new ID.

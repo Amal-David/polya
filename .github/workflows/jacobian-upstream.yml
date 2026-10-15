@@ -41,4 +41,8 @@ jobs:
             update the reviewed runtime pin and release provenance separately,
             run the real Python 3.15 -> isolated 3.12 Jacobian MCP integration job,
             and obtain approval before merging. No GIL/ABI assumptions.
+            GITHUB_TOKEN-created PR runs require a maintainer to approve workflows
+            (or explicitly dispatch CI on the inspected branch). A draft PR alone
+            is not tested runtime promotion. Top-level wheel hashes are enforced
+            by jacobian-isolated; dependencies are resolved separately.
           draft: true

@@ -112,3 +112,6 @@ Pre-stable. See [contributing](CONTRIBUTING.md) and the maintainer guide in [AGE
 
 Inspired by [Jacobian](https://github.com/morluto/jacobian).
 [MIT](LICENSE); catalogue attribution is in [third-party notices](THIRD_PARTY_NOTICES.md).
+
+For compound crypto experiments, use [preflight and typed pipelines](docs/agents/agent-workflows.md)
+to compose the existing ciphers, extraction steps and exact checks without custom glue.

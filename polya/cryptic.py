@@ -23,8 +23,9 @@ class TextSpec(Spec):
 
 
 class RouteSpec(TextSpec):
-    rows: int = Field(ge=1, le=MAX_TEXT)
-    columns: int = Field(ge=1, le=MAX_TEXT)
+    text: str = Field(max_length=65536)
+    rows: int = Field(ge=1, le=65536)
+    columns: int = Field(ge=1, le=65536)
     route: Literal["row", "column", "row_snake", "column_snake", "spiral_cw", "spiral_ccw"]
     corner: Literal["tl", "tr", "bl", "br"] = "tl"
     reverse: bool = False

@@ -68,8 +68,20 @@ class Server:
                 if set(args)!={'operation_id','inputs'}: raise ValueError('puzzle.run requires exactly operation_id and inputs')
                 data=run(args['operation_id'],args['inputs'])
             payload={'data':data}
+            execution_error = None
+            if name == 'puzzle.run':
+                from .catalog import REGISTRY
+                operation = REGISTRY[data['operation_id']]
+                status = data['result'].get('status')
+                if status in operation.execution_error_statuses:
+                    execution_error = {
+                        'code': status,
+                        'recovery': operation.recovery_hint,
+                        'claim': 'Operational failure; no puzzle hypothesis was rejected.',
+                    }
+                    payload['execution_error'] = execution_error
             text=json.dumps(payload,ensure_ascii=True,allow_nan=False)
-            result={'content':[{'type':'text','text':text}],'isError':False}
+            result={'content':[{'type':'text','text':text}],'isError':execution_error is not None}
             if self.version=='2025-06-18': result['structuredContent']=payload
         except Exception as exc:
             # Tool failures are execution errors, never evidence against a puzzle.
