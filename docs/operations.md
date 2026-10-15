@@ -1,6 +1,6 @@
 # Operation reference
 
-Polya registers 43 operations in 19 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
+Polya registers 46 operations in 19 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
 
 Families: [artifact](#artifact), [automata](#automata), [backends](#backends), [bits](#bits), [bytes](#bytes), [candidate](#candidate), [cipher](#cipher), [constraints](#constraints), [crypto](#crypto), [evidence](#evidence), [grid](#grid), [hypotheses](#hypotheses), [jacobian](#jacobian), [mechanism](#mechanism), [pattern](#pattern), [specialist](#specialist), [symbolic](#symbolic), [text](#text), [verify](#verify).
 
@@ -332,6 +332,35 @@ Example input:
 {
   "value": "SGVsbG8=",
   "encoding": "base64"
+}
+```
+
+### `bytes.decode_text`
+
+**Decode exact bytes as text.** Version 1; cacheable: yes.
+
+Decode strict hexadecimal bytes under an explicit codec, retaining source byte spans.
+
+Postcondition: Exact encoding under the specified codec; no normalization or error repair.
+
+Limits:
+
+- 16384 source bytes
+- only ascii, utf-8 and latin-1. Invalid byte sequences are errors.
+
+Required inputs:
+
+- `value_hex`: string
+- `codec`: one of `"ascii"`, `"utf-8"`, `"latin-1"`
+
+Output fields: `text`, `byte_length`, `codepoint_length`, `codepoint_byte_spans`, `codec`, `scope`.
+
+Example input:
+
+```json
+{
+  "value_hex": "41e99baa",
+  "codec": "utf-8"
 }
 ```
 
@@ -897,6 +926,15 @@ Optional inputs:
 
 Output fields: `status`, `data`, `error`, `upstream_version`, `upstream_tool`, `release_source_sha`, `scope`.
 
+Example input:
+
+```json
+{
+  "query": "exact extended gcd for two integers",
+  "limit": 3
+}
+```
+
 ### `jacobian.inspect`
 
 **Detect optional Jacobian runtime.** Version 1; cacheable: no.
@@ -936,11 +974,114 @@ Output fields: `status`, `data`, `error`, `upstream_version`, `upstream_tool`, `
 
 ## mechanism
 
+### `mechanism.plan_inspect`
+
+**Preflight a typed investigation plan.** Version 1; cacheable: no.
+
+Check source representations, references, constants and search size without executing kernels; return repair diagnostics.
+
+Postcondition: Validation of the supplied grammar only. valid=false is a diagnosis, not a rejected puzzle hypothesis.
+
+Limits:
+
+- Same plan admission limits
+- at most 16 diagnostics. No search or target calibration.
+
+Required inputs:
+
+- `plan`: object
+
+Output fields: `valid`, `plan_id`, `recipe_count`, `sources`, `steps`, `issues`, `next_operation`, `scope`.
+
+Example input:
+
+```json
+{
+  "plan": {
+    "sources": [
+      {
+        "id": "clue",
+        "kind": "symbols",
+        "value": "LXFOPVEFRNHR",
+        "source": "public Vigenere calibration vector"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "plaintext",
+        "alternatives": [
+          {
+            "operation_id": "cipher.polyalphabetic",
+            "bindings": {
+              "text": {
+                "node": "clue",
+                "field": "value"
+              }
+            },
+            "inputs": {
+              "key": "LEMON",
+              "variant": "vigenere",
+              "action": "decrypt"
+            },
+            "rationale": "two explicitly proposed keys in a known-answer example"
+          },
+          {
+            "operation_id": "cipher.polyalphabetic",
+            "bindings": {
+              "text": {
+                "node": "clue",
+                "field": "value"
+              }
+            },
+            "inputs": {
+              "key": "LIMES",
+              "variant": "vigenere",
+              "action": "decrypt"
+            },
+            "rationale": "two explicitly proposed keys in a known-answer example"
+          }
+        ]
+      },
+      {
+        "id": "encoded",
+        "alternatives": [
+          {
+            "operation_id": "text.encode",
+            "bindings": {
+              "text": {
+                "node": "plaintext",
+                "field": "text"
+              }
+            },
+            "inputs": {
+              "codec": "ascii"
+            },
+            "rationale": "the control specifies ASCII bytes"
+          }
+        ]
+      }
+    ],
+    "candidate": {
+      "node": "encoded",
+      "field": "hex"
+    },
+    "target": {
+      "kind": "direct",
+      "target": {
+        "kind": "sha256",
+        "value": "393dfae2845abf5cb0d599ccd1189f57ef56b3fa104e0ae71844d78bccd4e5d2",
+        "source": "independent known-answer control"
+      }
+    }
+  }
+}
+```
+
 ### `mechanism.plan_scan`
 
 **Execute typed artifact-to-target plans.** Version 1; cacheable: no.
 
-Compose bounded PNG, symbol, bit and byte references with explicit alternatives, losses and exact targets.
+Compose PNGs, spirals, classical ciphers, radix and strict codec conversions with exact targets. Use mechanism.plan_inspect before searching.
 
 Postcondition: Exact target checks under a supplied finite grammar; interruption and invalid inputs never imply a negative puzzle result.
 
@@ -964,6 +1105,90 @@ Optional inputs:
 - `timeout_ms`: integer, default `5000`
 
 Output fields: `status`, `plan_id`, `recipe_count`, `start`, `stop`, `next_start`, `complete`, `range_exhausted`, `termination_reason`, `trials`, `matches`, `sources`, `coverage`, `conclusion`, `kernel_calls`, `cache_hits`, `work_units`, `scope`.
+
+Example input:
+
+```json
+{
+  "plan": {
+    "sources": [
+      {
+        "id": "clue",
+        "kind": "symbols",
+        "value": "LXFOPVEFRNHR",
+        "source": "public Vigenere calibration vector"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "plaintext",
+        "alternatives": [
+          {
+            "operation_id": "cipher.polyalphabetic",
+            "bindings": {
+              "text": {
+                "node": "clue",
+                "field": "value"
+              }
+            },
+            "inputs": {
+              "key": "LEMON",
+              "variant": "vigenere",
+              "action": "decrypt"
+            },
+            "rationale": "two explicitly proposed keys in a known-answer example"
+          },
+          {
+            "operation_id": "cipher.polyalphabetic",
+            "bindings": {
+              "text": {
+                "node": "clue",
+                "field": "value"
+              }
+            },
+            "inputs": {
+              "key": "LIMES",
+              "variant": "vigenere",
+              "action": "decrypt"
+            },
+            "rationale": "two explicitly proposed keys in a known-answer example"
+          }
+        ]
+      },
+      {
+        "id": "encoded",
+        "alternatives": [
+          {
+            "operation_id": "text.encode",
+            "bindings": {
+              "text": {
+                "node": "plaintext",
+                "field": "text"
+              }
+            },
+            "inputs": {
+              "codec": "ascii"
+            },
+            "rationale": "the control specifies ASCII bytes"
+          }
+        ]
+      }
+    ],
+    "candidate": {
+      "node": "encoded",
+      "field": "hex"
+    },
+    "target": {
+      "kind": "direct",
+      "target": {
+        "kind": "sha256",
+        "value": "393dfae2845abf5cb0d599ccd1189f57ef56b3fa104e0ae71844d78bccd4e5d2",
+        "source": "independent known-answer control"
+      }
+    }
+  }
+}
+```
 
 ### `mechanism.recipe_scan`
 
@@ -1017,6 +1242,20 @@ Required inputs:
 - `target`: EqualityPattern
 
 Output fields: `match`, `outcome`, `candidate_sha256`, `target`, `output_hex`, `output_unit`, `expected_length`, `observed_length`, `expected_partition`, `observed_partition`, `mismatch_positions`, `missing_positions`, `extra_positions`, `bijection`, `scope`.
+
+Example input:
+
+```json
+{
+  "candidate_hex": "010201",
+  "target": {
+    "pattern": "ABA",
+    "source": "known three-position control",
+    "digest": "none",
+    "representation": "bytes"
+  }
+}
+```
 
 ## specialist
 
@@ -1257,6 +1496,35 @@ Optional inputs:
 Output fields: `valid`, `violated_domains`, `violated_constraints`, `checked_constraint_ids`, `scope`.
 
 ## text
+
+### `text.encode`
+
+**Encode text as exact bytes.** Version 1; cacheable: yes.
+
+Choose ascii, utf-8, or latin-1 explicitly; keep the byte span of each code point.
+
+Postcondition: Exact encoding under the specified codec; no normalization or error repair.
+
+Limits:
+
+- 16384 source code points and encoded bytes
+- errors are rejected, never replaced.
+
+Required inputs:
+
+- `text`: string
+- `codec`: one of `"ascii"`, `"utf-8"`, `"latin-1"`
+
+Output fields: `hex`, `byte_length`, `codepoint_length`, `codepoint_byte_spans`, `codec`, `scope`.
+
+Example input:
+
+```json
+{
+  "text": "A雪",
+  "codec": "utf-8"
+}
+```
 
 ### `text.profile`
 

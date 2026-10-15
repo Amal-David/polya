@@ -18,7 +18,9 @@ class PrimitiveTests(unittest.TestCase):
     def test_operation_ids_are_family_dot_snake_case(self):
         for operation_id in REGISTRY:
             self.assertRegex(operation_id, r"^[a-z][a-z0-9]*\.[a-z][a-z0-9_]*$")
-        self.assertEqual(len(REGISTRY), 43)
+        # Three deliberately added operations; retain the exact inventory assertion.
+        self.assertEqual(len(REGISTRY), 46)
+        self.assertTrue({'mechanism.plan_inspect', 'text.encode', 'bytes.decode_text'} <= REGISTRY.keys())
 
     def test_renamed_operation_ids_execute_as_their_canonical_operation(self):
         for old, new in RENAMED_OPERATION_IDS.items():

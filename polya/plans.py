@@ -33,7 +33,9 @@ class Reference(Spec):
 
 class Step(Spec):
     operation_id: Literal['artifact.png_bitplane', 'grid.read', 'text.symbol_map',
-                          'bits.from_symbols', 'bits.invert', 'bits.pack', 'bytes.slice']
+                          'bits.from_symbols', 'bits.invert', 'bits.pack', 'bytes.slice',
+                          'grid.traverse', 'cipher.polyalphabetic', 'cipher.bifid',
+                          'cipher.checkerboard', 'bytes.from_radix', 'text.encode', 'bytes.decode_text']
     bindings: dict[str, Reference] = Field(min_length=1, max_length=4)
     inputs: dict = Field(default_factory=dict)
     rationale: str = Field(min_length=1, max_length=512)
@@ -94,9 +96,21 @@ _PORTS = {
     'bits.pack': ({'text': 'bits'}, {'hex': 'bytes'}),
     'bytes.slice': ({'value_hex': 'bytes'}, {'hex': 'bytes'}),
 }
+_PORTS.update({
+    'grid.traverse': ({'text': 'stream', 'rows': 'int', 'columns': 'int'}, {'text': 'stream'}),
+    'cipher.polyalphabetic': ({'text': 'symbols', 'key': 'symbols'}, {'text': 'symbols'}),
+    'cipher.bifid': ({'text': 'symbols'}, {'text': 'symbols'}),
+    'cipher.checkerboard': ({'text': 'symbols'}, {'text': 'symbols'}),
+    'bytes.from_radix': ({'text': 'stream'}, {'hex': 'bytes'}),
+    'text.encode': ({'text': 'symbols'}, {'hex': 'bytes'}),
+    'bytes.decode_text': ({'value_hex': 'bytes'}, {'text': 'symbols'}),
+})
 _PRIMARY = {'artifact.png_bitplane': 'png_base64', 'grid.read': 'text',
             'text.symbol_map': 'text', 'bits.from_symbols': 'text',
-            'bits.invert': 'text', 'bits.pack': 'text', 'bytes.slice': 'value_hex'}
+            'bits.invert': 'text', 'bits.pack': 'text', 'bytes.slice': 'value_hex',
+            'grid.traverse': 'text', 'cipher.polyalphabetic': 'text', 'cipher.bifid': 'text',
+            'cipher.checkerboard': 'text', 'bytes.from_radix': 'text',
+            'text.encode': 'text', 'bytes.decode_text': 'value_hex'}
 _DUMMIES = {'png': 'AA==', 'symbols': '', 'bits': '', 'bytes': '00' * 16384, 'int': 1}
 
 
@@ -146,31 +160,36 @@ def prepare_plan(plan: dict | Plan) -> tuple[Plan, str, int, list[dict]]:
         if node.id in types:
             raise ValueError('source and node IDs must be unique')
         shape = None
-        for step in node.alternatives:
+        for choice, step in enumerate(node.alternatives):
+            where = f"nodes.{node.id}.alternatives.{choice} ({step.operation_id})"
             operation = REGISTRY[step.operation_id]
             accepted, outputs = _PORTS[step.operation_id]
             if _PRIMARY[step.operation_id] not in step.bindings:
-                raise ValueError('the typed stream input must be an explicit reference')
+                raise ValueError(f'{where}: {_PRIMARY[step.operation_id]} must be an explicit source/output reference')
             if set(step.bindings) & step.inputs.keys():
-                raise ValueError('a bound input cannot also be a constant')
+                raise ValueError(f'{where}: a bound input cannot also be a constant')
             if set(step.bindings) - accepted.keys():
-                raise ValueError('unknown or non-referenceable input port')
+                raise ValueError(f'{where}: unknown/non-referenceable port; permitted bindings: {sorted(accepted)}')
             args = dict(step.inputs)
             resolved = {}
             for name, ref in step.bindings.items():
                 kind = types.get(ref.node, {}).get(ref.field)
                 if kind is None:
-                    raise ValueError('references must name a declared source or earlier node output')
+                    raise ValueError(f'{where}.{name}: {ref.node}.{ref.field} must name a declared source or earlier node output')
                 expected = accepted[name]
                 if (expected == 'stream' and kind not in ('symbols', 'bits')) or (expected != 'stream' and expected != kind):
-                    raise ValueError('reference kind does not match the input port; use an explicit conversion')
+                    raise ValueError(f'{where}.{name}: reference kind {kind!r} does not match {expected!r}; use an explicit conversion (text.encode, bytes.decode_text, bits.from_symbols or bits.pack)')
                 resolved[name] = kind
-                args[name] = _DUMMIES[kind]
+                args[name] = 'A' if name == 'key' else _DUMMIES[kind]
             # Validate every alternative's constants/defaults before any kernel.
-            operation.request.model_validate(args)
+            try:
+                # Placeholder values check constant schemas, not data-dependent applicability.
+                operation.request.model_validate(args)
+            except ValueError as exc:
+                raise ValueError(f'{where}: invalid constants or binding shape: {exc}') from exc
             current = {key: resolved['text'] if kind == 'stream' else kind for key, kind in outputs.items()}
             if shape is not None and current != shape:
-                raise ValueError('alternatives for one node must expose identical typed output ports')
+                raise ValueError(f'{where}: alternatives must expose identical typed output ports; got {current}, expected {shape}')
             shape = current
         types[node.id] = shape
     if types.get(p.candidate.node, {}).get(p.candidate.field) != 'bytes':
@@ -214,9 +233,44 @@ def _derivation(node: Node, choice: int, step: Step, args: dict, result: dict) -
         mapping = {'kind': 'fixed_bit_groups', 'group_width': 8, 'bit_order': args['bit_order']}
         loss = {'kind': 'explicit_tail', 'tail': args['tail'], 'dropped_offsets': result['dropped_offsets'],
                 'consumed_bits': result['consumed_bits']}
-    else:
+    elif op == 'grid.traverse':
+        mapping = {'kind': 'grid_traversal', **{k: args[k] for k in
+                   ('rows', 'columns', 'route', 'corner', 'reverse')}}
+        loss = {'kind': 'none'}
+    elif op == 'cipher.polyalphabetic':
+        mapping = {'kind': 'polyalphabetic_dependencies', 'text_offsets': 'identity',
+                   'key_offset': 'output_index modulo key_length',
+                   **{k: args[k] for k in ('key', 'alphabet', 'variant', 'action')}}
+        loss = {'kind': 'none', 'scope': 'Invertible only under the specified key/alphabet/convention.'}
+    elif op == 'cipher.bifid':
+        mapping = {'kind': 'bifid_coordinate_dependencies',
+                   **{k: args[k] for k in ('square', 'period', 'action')},
+                   'block_lengths': result['block_lengths'],
+                   'rule': 'encrypt: split rows/columns then pair; decrypt: interleave then split. '
+                           'Each output consumes two coordinate components, not one source character.'}
+        loss = {'kind': 'none', 'scope': 'Invertible under the exact square and block periods.'}
+    elif op == 'cipher.checkerboard':
+        mapping = {'kind': 'prefix_code_spans', 'codes': args['codes'],
+                   'source_spans': result['source_spans']}
+        loss = {'kind': 'none' if len(set(args['codes'].values())) == len(args['codes'])
+                else 'noninjective_codebook', 'scope': 'Source spans and the explicit codebook are retained.'}
+    elif op == 'bytes.from_radix':
+        mapping = {'kind': 'radix_groups' if args['mode'] == 'groups' else 'whole_numeral',
+                   **{k: args[k] for k in ('radix', 'mode', 'group_width', 'bit_order', 'min_bytes')},
+                   'source_length': len(args['text']), 'consumed_digits': result['consumed_digits'],
+                   'rule': 'groups: each byte consumes its digit group; integer: every byte depends on the whole numeral.'}
+        loss = {'kind': 'explicit_radix_representation', 'trailing_digits': result['trailing_digits'],
+                'leading_zero_digits': result['leading_zero_digits'],
+                'scope': 'Integer mode discards digit formatting/leading zero digits; min_bytes specifies byte padding.'}
+    elif op in ('text.encode', 'bytes.decode_text'):
+        mapping = {'kind': 'codepoint_byte_spans', 'direction': op, 'codec': args['codec'],
+                   'spans': result['codepoint_byte_spans']}
+        loss = {'kind': 'none', 'scope': 'Strict reversible codec on successfully accepted input; no Unicode normalization.'}
+    elif op == 'bytes.slice':
         mapping = {'kind': 'byte_slice', 'start': args['start'], 'stop': args['stop']}
         loss = {'kind': 'explicit_slice', 'dropped_ranges': result['dropped_ranges']}
+    else:
+        raise RuntimeError(f'no declared source-dependency mapping for {op}')
     return {'node': node.id, 'choice': choice, 'operation_id': op,
             'bindings': {k: v.model_dump() for k, v in step.bindings.items()},
             'constants': step.inputs, 'rationale': step.rationale,
@@ -372,13 +426,118 @@ def scan(**kwargs) -> dict:
                      'Shared kernels/calibration are not independent reproduction. Time is cooperative; work counts validated input JSON bytes on cache misses.'}
 
 
+
+class InspectInput(Spec):
+    # Accept a raw plan so diagnostic errors can be returned without executing it.
+    plan: dict
+
+
+def inspect_plan(plan: dict) -> dict:
+    """Type-check a finite grammar; never execute kernels or target calibration."""
+    from pydantic import ValidationError
+    from .catalog import canonical_json
+    InspectInput(plan=plan)
+    if len(canonical_json(plan).encode()) > 900000:
+        raise ValueError('plan exceeds 900000 serialized bytes')
+    try:
+        p, plan_id, total, sources = prepare_plan(plan)
+    except ValidationError as exc:
+        issues = [{'path': '.'.join(str(x) for x in e['loc']), 'message': e['msg'][:400]}
+                  for e in exc.errors(include_input=False, include_url=False)[:16]]
+    except ValueError as exc:
+        issues = [{'path': 'plan', 'message': str(exc)[:1200]}]
+    else:
+        steps = []
+        for node in p.nodes:
+            steps.append({'node': node.id, 'alternatives': len(node.alternatives),
+                          'operations': list(dict.fromkeys(s.operation_id for s in node.alternatives))})
+        return {'valid': True, 'plan_id': plan_id, 'recipe_count': total,
+                'sources': sources, 'steps': steps, 'issues': [],
+                'next_operation': 'mechanism.plan_scan',
+                'scope': 'Types, constants and source representations checked; no kernels or calibration run. '
+                         'Intermediate data-dependent applicability and resource consumption remain untested.'}
+    return {'valid': False, 'plan_id': None, 'recipe_count': None, 'sources': [],
+            'steps': [], 'issues': issues, 'next_operation': 'mechanism.plan_inspect',
+            'scope': 'Repair the reported plan errors and preflight again; no search ran and no puzzle hypothesis was rejected.'}
+
+
+
+class LinearStep(Spec):
+    operation_id: str
+    alternatives: list[dict] = Field(min_length=1, max_length=64)
+    rationale: str = Field(min_length=1, max_length=512)
+
+
+def linear_plan(source: dict, steps: list[dict], target: dict) -> dict:
+    """Compile an explicit linear pipeline into the standard, inspectable plan.
+
+    Only references and node names are filled in. No codec, normalization, cipher,
+    key, or transformation is guessed or inserted. Branching DAGs use Plan itself.
+    """
+    from .catalog import canonical_operation_id
+    s = Source.model_validate(source)
+    if type(steps) is not list or not 1 <= len(steps) <= 8:
+        raise ValueError('linear pipelines require 1..8 explicit steps')
+    ref = {'node': s.id, 'field': 'value'}
+    nodes = []
+    for i, raw in enumerate(steps):
+        step = LinearStep.model_validate(raw)
+        oid = canonical_operation_id(step.operation_id)
+        if oid not in _PORTS:
+            raise ValueError(f'{oid} is not an admitted plan node')
+        name = f'step{i + 1}'
+        if name == s.id:
+            raise ValueError('source ID conflicts with generated step names; choose a different source ID')
+        nodes.append({'id': name, 'alternatives': [
+            {'operation_id': oid, 'inputs': inputs,
+             'bindings': {_PRIMARY[oid]: dict(ref)}, 'rationale': step.rationale}
+            for inputs in step.alternatives]})
+        outputs = _PORTS[oid][1]
+        field = 'hex' if 'hex' in outputs else 'text'
+        ref = {'node': name, 'field': field}
+    prepared, _, _, _ = prepare_plan({'sources': [s.model_dump()], 'nodes': nodes,
+                                      'candidate': ref, 'target': target})
+    return prepared.model_dump(mode='json')
+
+
+def example_plan() -> dict:
+    # Public known-answer calibration, not an unknown-puzzle lead.
+    return {
+        'sources': [{'id': 'clue', 'kind': 'symbols', 'value': 'LXFOPVEFRNHR',
+                     'source': 'public Vigenere calibration vector'}],
+        'nodes': [
+            {'id': 'plaintext', 'alternatives': [
+                {'operation_id': 'cipher.polyalphabetic',
+                 'bindings': {'text': {'node': 'clue', 'field': 'value'}},
+                 'inputs': {'key': key, 'variant': 'vigenere', 'action': 'decrypt'},
+                 'rationale': 'two explicitly proposed keys in a known-answer example'}
+                for key in ('LEMON', 'LIMES')]},
+            {'id': 'encoded', 'alternatives': [
+                {'operation_id': 'text.encode',
+                 'bindings': {'text': {'node': 'plaintext', 'field': 'text'}},
+                 'inputs': {'codec': 'ascii'}, 'rationale': 'the control specifies ASCII bytes'}]},
+        ],
+        'candidate': {'node': 'encoded', 'field': 'hex'},
+        'target': {'kind': 'direct', 'target': {'kind': 'sha256',
+                   'value': _sha(b'ATTACKATDAWN'), 'source': 'independent known-answer control'}},
+    }
+
+
 def operations(make):
     return [make('mechanism.plan_scan', 'Execute typed artifact-to-target plans',
-                 'Compose bounded PNG, symbol, bit and byte references with explicit alternatives, losses and exact targets.',
+                 'Compose PNGs, spirals, classical ciphers, radix and strict codec conversions with exact targets. Use mechanism.plan_inspect before searching.',
                  ScanInput, scan, 'typed artifact png symbols bits bytes candidate target plan resume provenance investigation',
                  'Exact target checks under a supplied finite grammar; interruption and invalid inputs never imply a negative puzzle result.',
                  '4 sources,8 nodes,64 alternatives/node,1M recipes,512 trials,16 matches; 65536 bit/symbol units,16384 candidate bytes; time/work/cache/output bounds.',
-                 cacheable=False, status=str, plan_id=str, recipe_count=int, start=int, stop=int,
+                 cacheable=False, example={'plan': example_plan()}, status=str, plan_id=str, recipe_count=int, start=int, stop=int,
                  next_start=int | None, complete=bool, range_exhausted=bool, termination_reason=str,
                  trials=list[dict], matches=list[dict], sources=list[dict], coverage=dict, conclusion=str,
-                 kernel_calls=int, cache_hits=int, work_units=int, scope=str)]
+                 kernel_calls=int, cache_hits=int, work_units=int, scope=str),
+            make('mechanism.plan_inspect', 'Preflight a typed investigation plan',
+                 'Check source representations, references, constants and search size without executing kernels; return repair diagnostics.',
+                 InspectInput, inspect_plan, 'plan preflight inspect validate repair types compose workflow grammar budget',
+                 'Validation of the supplied grammar only. valid=false is a diagnosis, not a rejected puzzle hypothesis.',
+                 'Same plan admission limits; at most 16 diagnostics. No search or target calibration.',
+                 cacheable=False, example={'plan': example_plan()}, valid=bool, plan_id=str | None,
+                 recipe_count=int | None, sources=list[dict], steps=list[dict], issues=list[dict],
+                 next_operation=str, scope=str)]

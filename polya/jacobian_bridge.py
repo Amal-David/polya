@@ -392,6 +392,9 @@ def operations(make):
              "jacobian math find discover inspect determinant modular gcd prime factor factorization number theory matrix graph polynomial combinatorics proof sat smt exact rational arithmetic algebra",
              "Preserves upstream mathematical contracts and errors; no puzzle interpretation verified.",
              "Explicit Jacobian installation; bounded subprocess startup/output, 1..120s deadline.", cacheable=False,
+             example={"query": "exact extended gcd for two integers", "limit": 3},
+             execution_error_statuses=("UNAVAILABLE", "VERSION_MISMATCH", "TIMEOUT", "PROTOCOL_ERROR", "UPSTREAM_ERROR"),
+             recovery_hint="Inspect jacobian.inspect and docs/guides/jacobian.md. Configure the pinned separate runtime; do not treat failure as a mathematical negative.",
              status=_STATUS, data=dict|None, error=dict|None, upstream_version=str,
              upstream_tool=str, release_source_sha=str, scope=str),
         make("jacobian.run", "Execute one inspected Jacobian math operation", "Delegate one typed mathematical payload to Jacobian's own math.run tool.",
@@ -399,6 +402,8 @@ def operations(make):
              "jacobian math run exact matrix number theory algebra graph modular theorem proof combinatorics verification computation",
              "Math output and upstream error scope retained. No false claim of independently checked interpretation.",
              "Operator-installed separate runtime, 500KB request, 1.1MB response, 1..180s deadline.", cacheable=False,
+             execution_error_statuses=("UNAVAILABLE", "VERSION_MISMATCH", "TIMEOUT", "PROTOCOL_ERROR", "UPSTREAM_ERROR"),
+             recovery_hint="Inspect jacobian.inspect and docs/guides/jacobian.md. Configure the pinned separate runtime; do not treat failure as a mathematical negative.",
              status=_STATUS, data=dict|None, error=dict|None, upstream_version=str,
              upstream_tool=str, release_source_sha=str, scope=str),
     ]
