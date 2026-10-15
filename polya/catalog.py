@@ -225,6 +225,13 @@ from .equality_patterns import operations as equality_ops
 OPS.extend(equality_ops(_op))
 from .textcodecs import operations as codec_ops
 OPS.extend(codec_ops(_op))
+from .council import operations as council_ops
+from .casepacks import operations as casepack_ops
+from .experiment_design import operations as experiment_ops
+from .classical_search import operations as classical_ops
+from .utility_eval import operations as utility_ops
+for builder in (council_ops, casepack_ops, experiment_ops, classical_ops, utility_ops):
+    OPS.extend(builder(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 
 # Pre-0.3.0 operation IDs; each still executes as an alias and results report the new ID.

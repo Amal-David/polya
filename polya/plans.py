@@ -208,6 +208,26 @@ def prepare_plan(plan: dict | Plan) -> tuple[Plan, str, int, list[dict]]:
     return p, plan_id, total, sources
 
 
+def _compact_spans(spans: list[list[int]]) -> dict:
+    """Exact codec maps without repeatedly serializing all interval endpoints.
+
+    Width digits 1..4 plus cumulative sums reconstruct each original byte span.
+    Keep the existing small-map representation for backwards-compatible examples.
+    """
+    if len(spans) <= 64:
+        return {'spans': spans}
+    cursor = 0
+    widths = []
+    for start, end in spans:
+        if start != cursor or not 1 <= end - start <= 4:
+            raise RuntimeError('codec emitted a noncontiguous/invalid span mapping')
+        widths.append(str(end - start))
+        cursor = end
+    return {'span_encoding': 'contiguous_byte_width_digits',
+            'widths': ''.join(widths), 'codepoint_count': len(spans), 'byte_length': cursor,
+            'rule': 'span i = [sum(widths[:i]), sum(widths[:i+1])); widths are base-10 digits 1..4'}
+
+
 def _derivation(node: Node, choice: int, step: Step, args: dict, result: dict) -> dict:
     """Compact, loss-explicit source-coordinate maps, not lossy offset samples."""
     from .catalog import canonical_json
@@ -264,7 +284,7 @@ def _derivation(node: Node, choice: int, step: Step, args: dict, result: dict) -
                 'scope': 'Integer mode discards digit formatting/leading zero digits; min_bytes specifies byte padding.'}
     elif op in ('text.encode', 'bytes.decode_text'):
         mapping = {'kind': 'codepoint_byte_spans', 'direction': op, 'codec': args['codec'],
-                   'spans': result['codepoint_byte_spans']}
+                   **_compact_spans(result['codepoint_byte_spans'])}
         loss = {'kind': 'none', 'scope': 'Strict reversible codec on successfully accepted input; no Unicode normalization.'}
     elif op == 'bytes.slice':
         mapping = {'kind': 'byte_slice', 'start': args['start'], 'stop': args['stop']}
@@ -393,6 +413,8 @@ def scan(**kwargs) -> dict:
                     'evidence_kind': 'EXACT_TARGET_UNDER_DECLARED_PLAN'} if matched else None)
             size = len(canonical_json(row).encode()) + (len(canonical_json(hit).encode()) if hit else 0)
             if result_bytes + size > 900000:
+                if not trials:
+                    raise ValueError('one terminal trial exceeds the result budget; simplify the plan before retrying')
                 raise Limit('output_limit')
             result_bytes += size
             trials.append(row)

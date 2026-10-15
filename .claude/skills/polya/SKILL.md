@@ -75,3 +75,8 @@ combinatorial, SAT/SMT or proof operations beyond Polya, first call
 upstream `math.find`, then `jacobian.run` to execute `math.run`. This is a
 separate pinned runtime, never an implicit installation or proof of the
 clue interpretation. See [Jacobian](../../../docs/guides/jacobian.md).
+
+For evidence packets, next-experiment choice, agent councils and restartable
+artifact handles, read docs/agents/council.md relative to the repository root.
+The host runs actual subagents. Never present role prompts or fixture callbacks
+as independently executed agents; record missing roles and unresolved objections.

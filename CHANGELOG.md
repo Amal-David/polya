@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased — evidence-first council and investigation utility
+
+- Keep council abstentions incomplete and preserve their reasons in public results.
+  Reject calibration bindings whose artifact encoding changes the consumed bytes.
+  Verify large stored artifacts during handoff without inflating inline case fields.
+- Add blind proposal/cross-critique council contracts and an optional host-callback
+  runner; include four read-only Claude Code role definitions. No provider is called
+  by the normal MCP operations.
+- Add evidence casepack inspection/calibration, local content-addressed workspace
+  handles, ledger-backed restart packets, and conditional next-test ranking.
+- Add a bounded unknown-key periodic-cipher baseline with caller reference text
+  and a paired agent evaluator with exact checks, missing runs and false claims.
+- Compact large codec dependencies in typed plans; fail repairably for a terminal
+  result that cannot fit rather than returning a forever-unchanged resume cursor.
+- Retain existing operations/aliases. No new solve or measured LLM utility claim.
+
+
 ## Unreleased
 
 - Return detached discovery examples; adapting one cannot mutate the registry.

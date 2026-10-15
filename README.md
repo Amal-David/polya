@@ -66,6 +66,13 @@ Run `polya mcp` as a local stdio server, or deploy the included
 `puzzle.find` to search for or inspect an operation, and `puzzle.run` to execute one. See [MCP](docs/agents/mcp.md),
 [agent setup](docs/agents/setup.md) and [investigating puzzles](docs/agents/investigating.md).
 
+## Investigation council
+
+Use [the evidence-first council and investigation guide](docs/agents/council.md)
+for evidence packets, local artifact handles, next-test ranking, bounded unknown-key
+proposals and matched agent evaluation. Four read-only subagent definitions are
+included; the host supplies actual model execution. No vote is treated as proof.
+
 ## What it covers
 
 | Area | Operations |
