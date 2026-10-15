@@ -1,0 +1,31 @@
+name: Agent review source
+on:
+  push:
+    branches: [fix/agent-composition-and-recovery]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Archive tracked source only
+        run: |
+          git rev-parse HEAD > SOURCE_COMMIT.txt
+          git rev-parse HEAD^{tree} > SOURCE_TREE.txt
+          git archive --format=tar HEAD > polya-source.tar
+          sha256sum polya-source.tar > SHA256SUMS.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: polya-review-source
+          path: |
+            polya-source.tar
+            SOURCE_COMMIT.txt
+            SOURCE_TREE.txt
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
