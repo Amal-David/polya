@@ -103,3 +103,20 @@ release in a separate Python 3.12 environment and runs it from Polya on Python 3
 - A source-only upstream change is not a tested release.
 
 Upstream: https://github.com/morluto/jacobian (MIT).
+
+## Reviewed-wheel installation and automated PR approval
+
+CI renders `scripts/jacobian_requirement.py` from the **runtime** `version` and
+`wheel_sha256`, then installs that wheel with `--require-hashes --no-deps` before
+resolving its dependencies. Observed upstream/latest fields never select code.
+This verifies the top-level wheel, not a full transitive dependency lock. A trusted
+separate environment and runtime identity checks are still required.
+
+The weekly updater opens review PRs, not deployments. Current
+[GitHub token rules](https://docs.github.com/en/actions/concepts/security/github_token)
+require approval for runs caused by bot-created/updated pull requests using
+GITHUB_TOKEN. A maintainer must approve the workflows and inspect the exact head.
+The CI workflow also supports an explicit manual run on that head. No token
+permissions, app credentials, branch protection or automatic merge were changed.
+Test a real changed-upstream proposal and its approval-to-CI handoff before claiming
+unattended end-to-end synchronization. Offline updater tests are not that evidence.

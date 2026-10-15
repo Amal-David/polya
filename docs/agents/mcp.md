@@ -52,3 +52,13 @@ non-finite numbers are rejected. Stdout carries only protocol messages.
 
 References: [lifecycle](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle),
 [tools](https://modelcontextprotocol.io/specification/2025-06-18/server/tools).
+
+## Execution failure signaling
+
+The exact operation contract lists `execution_error_statuses` and `recovery_hint`.
+`puzzle.run` preserves data/receipt and marks those failures with `isError: true`,
+plus an `execution_error` code and hint. Missing Jacobian is operationally different
+from `jacobian.inspect` successfully reporting it absent. SAT/UNSAT, target
+mismatches, UNKNOWN, and partial enumeration are not automatically errors.
+Plan preflight returns successful diagnostics with `valid: false` for an invalid
+plan. This does not reject a puzzle hypothesis. See [agent workflows](agent-workflows.md).

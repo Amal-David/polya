@@ -97,6 +97,8 @@ def operations(make):
         'Compare every output position under one shared bijection after an explicit digest and byte/hex representation.',
         CheckInput, check, 'equality partition pattern bijection digest sha256 sha512 bytes hex full output target',
         SCOPE, '4096 candidate bytes; 8192 pattern codepoints; fixed digest allowlist; linear work and complete evidence.',
+        example={'candidate_hex': '010201', 'target': {'pattern': 'ABA', 'source': 'known three-position control',
+                 'digest': 'none', 'representation': 'bytes'}},
         match=bool, outcome=Literal['TARGET_MATCH', 'NO_TARGET_MATCH'],
         candidate_sha256=str, target=EqualityPattern, output_hex=str,
         output_unit=Literal['byte', 'hex codepoint'], expected_length=Length,

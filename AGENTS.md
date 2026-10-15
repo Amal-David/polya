@@ -53,7 +53,10 @@ A renamed operation keeps its old ID in `RENAMED_OPERATION_IDS` in
 rename is listed in CHANGELOG.md. Results and receipts always report the canonical
 ID. Give each operation a
 narrow postcondition, typed input and output, applicability and resource limits.
-Update the contract, tests, docs and version policy together. After changing an
+Update the contract, tests, docs and version policy together. Expose operational
+failure statuses explicitly; valid negatives/partial searches are not tool errors.
+Return detached example values. For transformation changes, test composition into
+a typed plan with independent end-to-end fixtures, not just isolated calls. After changing an
 operation, run `python scripts/generate_operations_doc.py`; CI fails if
 `docs/operations.md` is stale. Never silently change byte encodings, Unicode units,
 overflow rules, normalization, answer projection, hypothesis activation or

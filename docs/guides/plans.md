@@ -7,6 +7,7 @@ equality pattern or calibrated AES lock. The caller declares every alternative;
 the operation does not infer the grammar or rank interpretations.
 
 ```bash
+polya inspect mechanism.plan_inspect --example
 polya inspect mechanism.plan_scan --schema
 polya inspect artifact.png_bitplane
 polya inspect crypto.openssl_scan
@@ -61,12 +62,23 @@ node expose the same typed output ports. The candidate must be `bytes`.
 | `bits.invert` | `text: bits` | `text: bits` |
 | `bits.pack` | `text: bits` | `hex: bytes` |
 | `bytes.slice` | `value_hex: bytes` | `hex: bytes` |
+| `grid.traverse` | `text: bits or symbols` | same text kind |
+| `cipher.polyalphabetic` | `text: symbols` (optional `key: symbols`) | `text: symbols` |
+| `cipher.bifid`, `cipher.checkerboard` | `text: symbols` | `text: symbols` |
+| `bytes.from_radix` | `text: bits or symbols` | `hex: bytes` |
+| `text.encode` | `text: symbols` | `hex: bytes` |
+| `bytes.decode_text` | `value_hex: bytes` | `text: symbols` |
 
 Grid `rows` and `columns` can be constants or integer references to PNG height
-and width. No other constant field accepts a reference. A symbol map that happens
+and width. A polyalphabetic key can also reference a symbols source/output. Other configuration fields are constants. A symbol map that happens
 to output `0` and `1` still yields symbols until `bits.from_symbols` assigns those
 meanings. There is no implicit text decoding, normalization, integer or channel
-conversion, truncation or padding. `bytes.from_radix` is not a plan node.
+conversion, truncation or padding. `bytes.from_radix` emits exact bytes, not its optional text view. Use `bytes.decode_text` for an explicit strict codec boundary.
+
+Preflight with `mechanism.plan_inspect`; it validates structure, not intermediate
+applicability or calibration. The [agent workflow guide](../agents/agent-workflows.md)
+contains a smaller `linear_plan` Python builder and complete compound examples.
+No builder silently inserts conversions.
 
 ## PNG bit planes
 

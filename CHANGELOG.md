@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Return detached discovery examples; adapting one cannot mutate the registry.
+- Expose declared backend-failure statuses and recovery hints; MCP flags operational
+  failures without confusing partial searches or mathematical negatives with errors.
+- Extend typed plans with spirals, classical ciphers, radix and strict text codecs.
+  Add `mechanism.plan_inspect`, `text.encode`, `bytes.decode_text`, compound examples,
+  and `polya.plans.linear_plan`; preserve operation aliases and runtime boundaries.
+- Verify Jacobian's pinned top-level wheel hash during separate-runtime CI provisioning.
+- Add independent compound PNG/cipher regressions and a research-backed evaluation plan.
+
+
 ## 0.3.0 - 14 October 2026
 
 Usability release. The engine is unchanged; the package, CLI, operation names
