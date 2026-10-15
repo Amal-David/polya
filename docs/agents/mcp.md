@@ -76,9 +76,9 @@ non-finite numbers are rejected. Stdout carries only protocol messages.
 ## Scope and limits
 
 - An `UNKNOWN` solver outcome is a valid result, not a tool error or a negative.
-- The transport is synchronous. There is no HTTP listener, browsing, shell,
-  wallet action, filesystem tool, dynamic-code endpoint, cancellation, progress or
-  subscriptions.
+- The stdio transport is synchronous; the optional HTTPS adapter is described
+  above. Neither exposes browsing, shell, wallet action, filesystem or dynamic-code
+  tools. Cancellation, progress and subscriptions are not advertised.
 - Calls run in-process. There is no process isolation from native dependencies.
 
 References: [lifecycle](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle),
