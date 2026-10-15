@@ -2,6 +2,9 @@
 
 ## Unreleased — evidence-first council and investigation utility
 
+- Keep council abstentions incomplete and preserve their reasons in public results.
+  Reject calibration bindings whose artifact encoding changes the consumed bytes.
+  Verify large stored artifacts during handoff without inflating inline case fields.
 - Add blind proposal/cross-critique council contracts and an optional host-callback
   runner; include four read-only Claude Code role definitions. No provider is called
   by the normal MCP operations.

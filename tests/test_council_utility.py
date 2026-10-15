@@ -323,3 +323,79 @@ def test_workspace_hydrates_missing_inline_case_content_by_hash(tmp_path):
         pack['artifacts'][0]['content'] = None
         assert w.handoff(pack, [])['case']['ready']
         assert pack['artifacts'][0]['content'] is None
+
+
+def test_council_abstention_remains_incomplete_in_the_public_operation():
+    proposals, critiques = reports()
+    proposals[-1]['features'] = []
+    proposals[-1]['abstention'] = 'No independent evidence to assess these proposals'
+    for critique in critiques:
+        critique['reviewed_feature_ids'] = [fid for fid in critique['reviewed_feature_ids']
+                                            if fid != 'falsifier-feature']
+    result = run('council.prioritize', {'proposals': proposals, 'critiques': critiques,
+                                        'source_refs': ['repo']})['result']
+    assert not result['complete_review']
+    assert result['missing_proposals'] == ['falsifier']
+    assert result['abstentions'] == {'falsifier': proposals[-1]['abstention']}
+    assert all(row['decision'] == 'INCOMPLETE_REVIEW' for row in result['features'])
+
+
+@pytest.mark.parametrize('compatible', [False, True])
+@pytest.mark.parametrize('encoding,operation,field,inputs,content,expected', [
+    ('utf8', 'bytes.decode_text', 'value_hex', {'codec': 'ascii'}, '41', 'A'),
+    ('hex', 'text.encode', 'text', {'codec': 'utf-8'}, '41', '3431'),
+    ('utf8', 'bytes.decode', 'value', {'encoding': 'hex'}, '41', '41'),
+])
+def test_calibration_bindings_must_preserve_hashed_bytes(
+        encoding, operation, field, inputs, content, expected, compatible):
+    if compatible:
+        encoding = 'utf8' if encoding == 'hex' else 'hex'
+    raw = bytes.fromhex(content) if encoding == 'hex' else content.encode()
+    pack = {'id': 'mismatched-binding', 'question': 'Are the hashed bytes actually consumed?',
+            'artifacts': [{'id': 'evidence', 'encoding': encoding, 'content': content,
+                           'sha256': hashlib.sha256(raw).hexdigest(), 'source': 'known bytes'}],
+            'calibrations': [{'id': 'control', 'operation_id': operation, 'inputs': inputs,
+                              'artifact_bindings': {field: 'evidence'},
+                              'output_field': 'text' if operation == 'bytes.decode_text' else 'hex',
+                              'expected_value_sha256': hashlib.sha256(encoded(expected)).hexdigest(),
+                              'source': 'control using the wrong bytes'}]}
+    if compatible:
+        assert replay(pack)['status'] == 'CALIBRATED'
+    else:
+        with pytest.raises(ValueError, match='encoding'):
+            replay(pack)
+
+
+@pytest.mark.parametrize('encoding,data', [
+    ('hex', b'\x00\xff' * 500_000),
+    ('utf8', b'a' * 1_000_000),
+    ('utf8', '雪'.encode() * 300_000),
+], ids=['hex-1mb', 'ascii-1mb', 'unicode-900kb'])
+def test_workspace_handoff_verifies_large_stored_evidence_without_inlining(tmp_path, encoding, data):
+    digest = hashlib.sha256(data).hexdigest()
+    pack = {'id': 'large-evidence', 'question': 'Can the next agent verify stored evidence?',
+            'artifacts': [{'id': 'large', 'encoding': encoding, 'sha256': digest,
+                           'source': 'capacity boundary control'}]}
+    with Workspace(tmp_path) as workspace:
+        workspace.put(data)
+    with Workspace(tmp_path) as workspace:
+        result = workspace.handoff(pack, [])
+        assert result['case']['ready']
+        row = result['case']['artifacts'][0]
+        assert row['status'] == 'HASH_MATCH'
+        assert row['observed_sha256'] == digest and row['byte_length'] == len(data)
+        assert len(encoded(result)) < 2000
+        assert 'content' not in pack['artifacts'][0]
+        assert not inspect_case(pack)['ready']
+
+
+def test_workspace_handoff_keeps_missing_and_corrupted_local_evidence_blocked(tmp_path):
+    pack = casepack()
+    data = pack['artifacts'][0].pop('content').encode()
+    with Workspace(tmp_path) as workspace:
+        assert not workspace.handoff(pack, [])['case']['ready']
+        handle = workspace.put(data)
+        workspace.connection.execute('UPDATE artifacts SET body=? WHERE sha=?', (b'corrupt', handle[7:]))
+        workspace.connection.commit()
+        with pytest.raises(ValueError, match='hash mismatch'):
+            workspace.handoff(pack, [])

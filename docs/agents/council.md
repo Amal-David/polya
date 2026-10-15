@@ -52,7 +52,10 @@ with a cooperative timeout per call. It has no model SDK or automatic network
 access. A cancelled task that suppresses cancellation can still block its host;
 use process isolation in the host when hard deadlines are required.
 
-Critiques must enumerate reviewed feature IDs; missing coverage cannot yield a complete review. Outputs preserve failed roles, missing reviews and dissent. `CANDIDATE` means
+Critiques must enumerate reviewed feature IDs; missing coverage cannot yield a complete review.
+An abstaining role leaves its proposal missing for coverage and its reason appears
+in `abstentions`; remaining features stay `INCOMPLETE_REVIEW`. Outputs preserve
+failed roles, missing reviews and dissent. `CANDIDATE` means
 eligible for consideration, not proved, approved or implemented. Distinct contexts
 or different model names do not guarantee independent errors.
 
@@ -80,6 +83,11 @@ known-answer calibrations. `casepack.inspect` returns a compact packet without
 copying artifact content. Readiness checks consistency, not author authenticity.
 Control expectations are SHA256 of the selected output value serialized as
 canonical JSON (sorted keys, ASCII escapes, compact separators).
+
+Artifact bindings preserve representation: text, symbol and bit inputs require
+`utf8` artifacts; byte inputs require `hex` artifacts. `bytes.decode.value` can
+bind a hex artifact only with `encoding: hex`. Base64 decoding remains available
+with explicit constant inputs. Incompatible bindings fail before any control runs.
 
 ```python
 from polya import run
@@ -111,8 +119,11 @@ with Workspace('local-investigation') as w:
 
 On restart, `json.loads(w.get(saved))` recovers the exact hydrated plan. Resume
 with the previous `plan_id` and `next_start`. An implementation change invalidates
-old resume identity; do not carry results into a changed plan silently. Cases
-with missing inline content can be hydrated from their exact stored SHA256.
+old resume identity; do not carry results into a changed plan silently. Handoff
+verifies missing inline artifacts directly from their exact stored SHA256 without
+copying stored payloads into the inline case schema. This supports the full one MB
+workspace artifact limit, including hex and Unicode data, while inline case fields
+remain limited to 262144 characters and the supplied case remains at most 900 KB.
 The workspace reuses the existing execution-backed ledger, not a second coverage
 system. Source labels and database hashes are not authentication against a writer
 who can rewrite the workspace. Each process opens its own Workspace instance;

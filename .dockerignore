@@ -1,0 +1,13 @@
+**
+!pyproject.toml
+!README.md
+!LICENSE
+!polya/
+!polya/**
+!puzzleops/
+!puzzleops/**
+!deploy/
+!deploy/server.py
+!deploy/requirements.txt
+!Dockerfile
+**/__pycache__/

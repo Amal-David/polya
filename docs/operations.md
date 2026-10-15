@@ -855,7 +855,7 @@ Required inputs:
 - `critiques`: array of Critique
 - `source_refs`: array of string
 
-Output fields: `features`, `complete_review`, `missing_feature_reviews`, `missing_proposals`, `missing_critiques`, `scope`.
+Output fields: `features`, `complete_review`, `missing_feature_reviews`, `missing_proposals`, `missing_critiques`, `abstentions`, `scope`.
 
 ## crypto
 

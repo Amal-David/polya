@@ -39,7 +39,7 @@ class Feature(Spec):
 class Proposal(Spec):
     role: Role
     features: list[Feature] = Field(max_length=8)
-    abstention: str | None = Field(default=None, max_length=1000)
+    abstention: str | None = Field(default=None, min_length=1, max_length=1000)
 
 
 class Objection(Spec):
@@ -91,7 +91,7 @@ def prioritize(proposals: list[dict], critiques: list[dict], source_refs: list[s
             raise ValueError('only one report per role and phase; duplicates are not extra votes')
     features: dict[str, tuple[str, Feature]] = {}
     for report in p.proposals:
-        if report.abstention and report.features:
+        if report.abstention is not None and report.features:
             raise ValueError('an abstaining role cannot also propose features')
         for f in report.features:
             if f.id in features:
@@ -117,7 +117,9 @@ def prioritize(proposals: list[dict], critiques: list[dict], source_refs: list[s
     missing_reviews = {role: sorted(fid for fid, (owner, _) in features.items()
                                     if owner != role and fid not in reviewed.get(role, set()))
                        for role in ROLES}
-    complete = ({r.role for r in p.proposals} == set(ROLES)
+    abstentions = {r.role: r.abstention for r in p.proposals if r.abstention is not None}
+    proposal_roles = {r.role for r in p.proposals if r.abstention is None}
+    complete = (proposal_roles == set(ROLES)
                 and {r.role for r in p.critiques} == set(ROLES)
                 and not any(missing_reviews.values()))
     rows, pending = [], set(features)
@@ -140,7 +142,7 @@ def prioritize(proposals: list[dict], critiques: list[dict], source_refs: list[s
                      'decision': decision, 'objections': complaints[fid]})
         pending.remove(fid)
     return {'features': rows, 'complete_review': complete, 'missing_feature_reviews': missing_reviews,
-            'missing_proposals': sorted(set(ROLES) - {r.role for r in p.proposals}),
+            'missing_proposals': sorted(set(ROLES) - proposal_roles), 'abstentions': abstentions,
             'missing_critiques': sorted(set(ROLES) - {r.role for r in p.critiques}),
             'scope': 'Advisory dependency-aware ordering of supplied estimates and objections. A candidate is not approval, proof, an independent review, or demonstrated utility. No writes or model calls.'}
 
@@ -200,5 +202,5 @@ def operations(make):
         make('council.prioritize', 'Prioritize cross-critiqued feature proposals', 'Keep objections, dependencies and missing reviews visible; no majority vote proves a claim.',
              PrioritizeInput, prioritize, 'council prioritize feature review objections acceptance dependencies',
              'Advisory ordering of supplied estimates, not independent agreement or approval.', '4 reports/phase,8 proposals/role,32 objections/role.',
-             features=list[dict], complete_review=bool, missing_feature_reviews=dict, missing_proposals=list[str], missing_critiques=list[str], scope=str),
+             features=list[dict], complete_review=bool, missing_feature_reviews=dict, missing_proposals=list[str], missing_critiques=list[str], abstentions=dict[str, str], scope=str),
     ]

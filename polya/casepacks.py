@@ -4,11 +4,12 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from typing import Literal
+from typing import Callable, Literal
 from pydantic import Field
 from .cryptic import Spec
 
 DIGEST = r'^[0-9a-f]{64}$'
+MAX_STORED_ARTIFACT = 1_000_000
 REPLAY_OPS = frozenset({'bytes.decode', 'bytes.decode_text', 'text.encode', 'text.profile',
     'grid.read', 'grid.traverse', 'text.symbol_map', 'bytes.from_radix',
     'cipher.polyalphabetic', 'cipher.bifid', 'cipher.checkerboard',
@@ -64,8 +65,9 @@ class ReplayInput(InspectInput):
     timeout_ms: int = Field(default=5000, ge=1, le=60000)
 
 
-def _prepare(case):
+def _prepare(case, artifact_loader: Callable[[str], bytes] | None = None):
     from .catalog import REGISTRY, canonical_operation_id
+    from .plans import _PORTS
     p = CasePack.model_validate(case.model_dump() if isinstance(case, CasePack) else case)
     if len(encoded(p.model_dump())) > 900000:
         raise ValueError('case pack exceeds 900000 bytes')
@@ -75,6 +77,7 @@ def _prepare(case):
     if any(not q or len(q) > 2000 for q in p.open_questions):
         raise ValueError('open questions must contain 1..2000 characters')
     ids = {a.id for a in p.artifacts}
+    encodings = {a.id: a.encoding for a in p.artifacts}
     for s in p.statements:
         if not set(s.artifact_ids) <= ids:
             raise ValueError('statement refers to an unknown artifact')
@@ -88,12 +91,33 @@ def _prepare(case):
                 not set(c.artifact_bindings.values()) <= ids or
                 c.output_field not in op.result.model_fields):
             raise ValueError('invalid calibration bindings or output field')
+        ports = _PORTS.get(c.operation_id, ({}, {}))[0]
+        if c.operation_id == 'text.profile':
+            ports = {'text': 'symbols'}
+        elif c.operation_id in ('crypto.openssl_inspect', 'crypto.openssl_decrypt'):
+            ports = {'blob_hex': 'bytes', 'password_hex': 'bytes'}
+        elif c.operation_id == 'bytes.decode':
+            ports = {'value': 'bytes'} if c.inputs.get('encoding') == 'hex' else {}
+        for field, aid in c.artifact_bindings.items():
+            kind = ports.get(field)
+            expected = 'hex' if kind == 'bytes' else 'utf8' if kind in ('symbols', 'stream', 'bits') else None
+            if expected is None or encodings[aid] != expected:
+                raise ValueError(f'calibration artifact encoding does not match {c.operation_id}.{field}')
     required_by_calibration = {aid for c in p.calibrations for aid in c.artifact_bindings.values()}
     rows = []
     for a in p.artifacts:
         if a.content is None:
-            state = 'MISSING_REQUIRED' if a.required or a.id in required_by_calibration else 'MISSING_OPTIONAL'
-            actual, size = None, None
+            raw = None
+            if artifact_loader is not None:
+                try:
+                    raw = artifact_loader('sha256:' + a.sha256)
+                except KeyError:
+                    pass
+                else:
+                    if type(raw) is not bytes or len(raw) > MAX_STORED_ARTIFACT:
+                        raise ValueError('stored artifact must be exact bytes of at most one megabyte')
+                    if a.encoding == 'utf8':
+                        raw.decode('utf-8', errors='strict')
         else:
             if a.encoding == 'hex':
                 if len(a.content) % 2 or any(ch not in '0123456789abcdefABCDEF' for ch in a.content):
@@ -101,6 +125,10 @@ def _prepare(case):
                 raw = bytes.fromhex(a.content)
             else:
                 raw = a.content.encode('utf-8', errors='strict')
+        if raw is None:
+            state = 'MISSING_REQUIRED' if a.required or a.id in required_by_calibration else 'MISSING_OPTIONAL'
+            actual, size = None, None
+        else:
             actual, size = hashlib.sha256(raw).hexdigest(), len(raw)
             state = 'HASH_MATCH' if actual == a.sha256 else 'HASH_MISMATCH'
         rows.append({'id': a.id, 'status': state, 'sha256': a.sha256, 'observed_sha256': actual,
@@ -108,8 +136,9 @@ def _prepare(case):
     return p, rows
 
 
-def inspect_case(case: dict) -> dict:
-    p, rows = _prepare(case)
+def inspect_case(case: dict, *, artifact_loader: Callable[[str], bytes] | None = None) -> dict:
+    """A trusted Python host may supply a loader; the MCP request accepts only case data."""
+    p, rows = _prepare(case, artifact_loader)
     blocked = [r['id'] for r in rows if r['status'] in ('MISSING_REQUIRED', 'HASH_MISMATCH')]
     manifest = p.model_dump()
     # Identity binds original bytes and statements, but absence of an optional

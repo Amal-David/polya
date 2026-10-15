@@ -11,10 +11,9 @@ from pathlib import Path
 import re
 import sqlite3
 
-from .casepacks import encoded, inspect_case
+from .casepacks import MAX_STORED_ARTIFACT as MAX_ARTIFACT, encoded, inspect_case
 
 HANDLE = re.compile(r'^sha256:([a-f0-9]{64})$')
-MAX_ARTIFACT = 1_000_000
 MAX_TOTAL = 32_000_000
 
 
@@ -83,20 +82,6 @@ class Workspace:
         from .plans import prepare_plan
         return prepare_plan(resolved)[0].model_dump(mode='json')
 
-    def hydrate_case(self, case: dict) -> dict:
-        """Fill missing inline evidence from local content hashes, never from URLs."""
-        from .casepacks import CasePack
-        pack = CasePack.model_validate(case).model_dump(mode='json')
-        for artifact in pack['artifacts']:
-            if artifact['content'] is not None:
-                continue
-            try:
-                data = self.get('sha256:' + artifact['sha256'])
-            except KeyError:
-                continue  # inspection reports missing evidence, not fabricated bytes
-            artifact['content'] = data.hex() if artifact['encoding'] == 'hex' else data.decode('utf-8', errors='strict')
-        return pack
-
     def save_plan(self, plan: dict) -> str:
         return self.put(encoded(self.hydrate_plan(plan)))
 
@@ -112,7 +97,7 @@ class Workspace:
         if type(plan_ids) is not list or len(plan_ids) > 32 or len(set(plan_ids)) != len(plan_ids):
             raise ValueError('at most 32 distinct plan IDs')
         from .ledger import Ledger
-        report = inspect_case(self.hydrate_case(case))
+        report = inspect_case(case, artifact_loader=self.get)
         with Ledger(self.root / 'history.sqlite') as ledger:
             coverage = [ledger.plan_coverage(pid) for pid in plan_ids]
         result = {'case': report, 'plans': coverage,

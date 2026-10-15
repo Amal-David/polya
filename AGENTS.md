@@ -93,3 +93,8 @@ equivalence tests; see [performance](docs/internals/performance.md).
 Use a focused branch and a reviewed diff. Never force-push main or overwrite a
 moved head. Merge only the inspected head, respect required checks, read back main
 after merging. Keep the README short; put details in `docs/`.
+
+To release: bump the version in `pyproject.toml` and `polya/__init__.py`, add the
+CHANGELOG section, merge, then tag main `v<version>` and push the tag.
+`.github/workflows/release.yml` builds, checks the tag against the package
+version, and publishes `polya-puzzles` to PyPI through trusted publishing.
