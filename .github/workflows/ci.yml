@@ -54,7 +54,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[test,solvers,learning,imaging]'
+      - run: python -m pip install -e '.[test,solvers,learning,imaging]' -r deploy/requirements.txt
       - run: python -m pip check
       - name: Require actual optional backends
         run: python -c 'import ortools, aalpy; from polya.native_z3 import native_version; assert native_version()'
