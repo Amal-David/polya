@@ -1,8 +1,8 @@
 # Operation reference
 
-Polya registers 53 operations in 23 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
+Polya registers 54 operations in 24 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
 
-Families: [artifact](#artifact), [automata](#automata), [backends](#backends), [bits](#bits), [bytes](#bytes), [candidate](#candidate), [casepack](#casepack), [cipher](#cipher), [constraints](#constraints), [council](#council), [crypto](#crypto), [evidence](#evidence), [experiment](#experiment), [grid](#grid), [hypotheses](#hypotheses), [jacobian](#jacobian), [mechanism](#mechanism), [pattern](#pattern), [specialist](#specialist), [symbolic](#symbolic), [text](#text), [utility](#utility), [verify](#verify).
+Families: [artifact](#artifact), [automata](#automata), [backends](#backends), [bits](#bits), [bytes](#bytes), [candidate](#candidate), [casepack](#casepack), [cipher](#cipher), [constraints](#constraints), [council](#council), [crypto](#crypto), [evidence](#evidence), [experiment](#experiment), [grid](#grid), [hypotheses](#hypotheses), [jacobian](#jacobian), [mechanism](#mechanism), [method](#method), [pattern](#pattern), [specialist](#specialist), [symbolic](#symbolic), [text](#text), [utility](#utility), [verify](#verify).
 
 ## artifact
 
@@ -1473,6 +1473,41 @@ Optional inputs:
 - `timeout_ms`: integer, default `5000`
 
 Output fields: `matches`, `trials`, `recipe_count`, `start`, `next_start`, `complete`, `range_exhausted`, `termination_reason`, `kernel_calls`, `cache_hits`, `work_units`, `checkpoint`, `scope`.
+
+## method
+
+### `method.retrieve`
+
+**Retrieve source-backed puzzle methods.** Version 1; cacheable: yes.
+
+Match method and applicability terms against six bundled original educational toys.
+
+Postcondition: Deterministic lexical matches only; examples are untrusted reference data, not instructions or evidence for a new task.
+
+Limits:
+
+- 4096-character nonblank query, 1..6 returned examples
+- fixed bundled library
+- no paths, network, execution, or hidden gold.
+
+Required inputs:
+
+- `query`: string
+
+Optional inputs:
+
+- `limit`: integer, default `3`
+
+Output fields: `matches`, `library_sha256`, `scope`.
+
+Example input:
+
+```json
+{
+  "query": "parity invariant coloring",
+  "limit": 2
+}
+```
 
 ## pattern
 

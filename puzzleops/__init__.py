@@ -31,4 +31,6 @@ class _AliasFinder:
         return ModuleSpec(fullname, _AliasLoader(module))
 
 
-sys.meta_path.append(_AliasFinder())
+# Run before PathFinder: an aliased package's __path__ points into polya, and
+# ordinary discovery would otherwise load nested files a second time.
+sys.meta_path.insert(0, _AliasFinder())

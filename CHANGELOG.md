@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — source-backed method selection
+
+- Add `method.retrieve` across Python, CLI and MCP, with six source-linked original
+  educational toys, explicit reuse limits and method/applicability-only matching.
+- Integrate `polya.methods` offline context, archive and equal-budget preparation
+  helpers plus a portable method skill. Reuse existing council and utility tools;
+  no model runner, learning result, hidden gold store or live-target action is added.
+- Validate every manifest and intervention fingerprint, detach context values,
+  serialize archive records once before hashing, reject malformed/non-finite JSON,
+  and bound local file reads. Add adversarial and concurrent regressions.
+- Include nested implementation and bundled method data in receipt/cache source
+  fingerprints. Consolidate source fidelity, proof scope and evaluation lessons.
+
 ## Unreleased — evidence-first council and investigation utility
 
 - Keep council abstentions incomplete and preserve their reasons in public results.

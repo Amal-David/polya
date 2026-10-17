@@ -73,6 +73,10 @@ for evidence packets, local artifact handles, next-test ranking, bounded unknown
 proposals and matched agent evaluation. Four read-only subagent definitions are
 included; the host supplies actual model execution. No vote is treated as proof.
 
+For educational puzzles, [source-backed method selection](docs/agents/method-learning.md)
+adds six cited teaching cases, `method.retrieve`, and offline fresh-context/evaluation
+helpers. These are development references; no learned solving gain is claimed.
+
 ## What it covers
 
 | Area | Operations |

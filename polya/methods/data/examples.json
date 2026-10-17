@@ -1,0 +1,191 @@
+[
+  {
+    "id": "constraint-propagation-small-grid",
+    "methods": [
+      "constraint propagation",
+      "minimum remaining values",
+      "bounded backtracking"
+    ],
+    "source": {
+      "url": "https://www.norvig.com/sudoku.html",
+      "author": "Peter Norvig",
+      "title": "Solving Every Sudoku Puzzle",
+      "license_basis": "Publicly readable author-hosted essay; redistribution license not verified. Link and short original method summary only. No source code, puzzle corpus, prose, or images redistributed. Cited reading reference only; source text is not included and training permission is not asserted. Source inspected 2026-10-16; evidence: Constraint Propagation; Search; Analysis; random_puzzle comments."
+    },
+    "documented_evidence": "Norvig documents peer elimination, single remaining locations within units, contradiction detection, and minimum-remaining-values branching. His timing experiments also expose long-tail search costs.",
+    "reconstruction": "The 4-by-4 instance and verification below were newly written for this collection. They are not a transcript of Norvig solving it or a claim about private thought.",
+    "toy_adaptation": {
+      "provenance": "New development fixture applying general finite-domain Sudoku constraints; no source puzzle copied. Development-only; not a holdout or source-text training example.",
+      "problem": "Fill each row, column, and 2-by-2 box with 1,2,3,4 exactly once. Rows: 0000 / 3412 / 2143 / 4321. Zero means blank.",
+      "solution": "The first row is 1234. Each column leaves exactly one unused digit.",
+      "verification": "Enumerate all 4-by-4 completed grids and retain those respecting givens: exactly one survives, 1234/3412/2143/4321."
+    },
+    "applicability": [
+      "Finite domains with explicit all-different constraints.",
+      "Propagate before branching; branch on a small unresolved domain when propagation stalls."
+    ],
+    "limits": [
+      "Propagation alone need not finish a valid puzzle.",
+      "Finding one solution does not prove uniqueness.",
+      "Do not import the essay timing results as guarantees for another solver."
+    ],
+    "falsifiable_test": "Insert a second 3 into row 2: a correct constraint model must reject the duplicate immediately."
+  },
+  {
+    "id": "construction-check-uniqueness",
+    "methods": [
+      "construct from a witness",
+      "solution counting",
+      "counterexample to sufficiency"
+    ],
+    "source": {
+      "url": "https://www.norvig.com/sudoku.html",
+      "author": "Peter Norvig",
+      "title": "Solving Every Sudoku Puzzle",
+      "license_basis": "Publicly readable author-hosted essay; redistribution license not verified. Link and short original method summary only. No source code, puzzle corpus, prose, or images redistributed. Cited reading reference only; source text is not included and training permission is not asserted. Source inspected 2026-10-16; evidence: Constraint Propagation; Search; Analysis; random_puzzle comments."
+    },
+    "documented_evidence": "Norvig explicitly notes that his random puzzle procedure can produce unsatisfiable or multiply solvable instances. Generation and certification are separate tasks.",
+    "reconstruction": "The completed-grid deletion construction is our own teaching procedure, not Norvig's random-assignment algorithm. Its uniqueness check is a proposed safeguard, not attributed to him.",
+    "toy_adaptation": {
+      "provenance": "New development fixture and givens-removal experiment; shares only general Sudoku rules with the source. Development-only; not a holdout or source-text training example.",
+      "problem": "Starting with 1234/3412/2143/4321, erase row 1 columns 1,2 and row 3 columns 1,2. Does 0034/3412/0043/4321 have a unique completion?",
+      "solution": "No. There are two completions: 1234/3412/2143/4321 and 2134/3412/1243/4321. Restoring the top-left 1 makes it unique.",
+      "verification": "Exhaustively count completions before and after restoring the given; counts must be 2 and 1."
+    },
+    "applicability": [
+      "Constructing small logic puzzles from a known valid witness.",
+      "Verifying that erased clues retain exactly one completion."
+    ],
+    "limits": [
+      "A retained witness proves existence only.",
+      "Uniqueness is not a measure of human difficulty.",
+      "Counting all completions may be expensive; stop at two only when deciding non-uniqueness."
+    ],
+    "falsifiable_test": "A generator claiming this erased grid is unique is rejected by the two explicit distinct witnesses."
+  },
+  {
+    "id": "color-balance-invariant",
+    "methods": [
+      "invariant",
+      "coloring",
+      "impossibility certificate"
+    ],
+    "source": {
+      "url": "https://live.ocw.mit.edu/courses/res-6-011-the-art-of-insight-in-science-and-engineering-mastering-complexity-fall-2014/3bca850386a3005c22134fa62fb3bad5_MITRES_6-011F14_art_insfin.pdf",
+      "author": "Sanjoy Mahajan",
+      "title": "The Art of Insight in Science and Engineering: Mastering Complexity",
+      "license_basis": "Copyright 2014 Sanjoy Mahajan; PDF copyright page explicitly states CC BY-NC-SA 4.0. Source text/figures are not redistributed. Any reuse of protected source expression must honor attribution, noncommercial, and share-alike restrictions; no unrestricted commercial reuse is asserted. Cited reading reference only; source text is not included and training permission is not asserted. Source inspected 2026-10-16; evidence: Section 3.1.2, printed pp. 59-60; PDF pp. 78-79; copyright PDF p. 5."
+    },
+    "documented_evidence": "Mahajan analyzes a corner-deleted chessboard by preserving the difference between uncovered color counts under every domino placement. Unequal initial counts cannot reach a fully covered state.",
+    "reconstruction": "The smaller board, exhaustive verifier, and balanced-but-untileable control are independently written development fixtures, not copied diagrams or source exercises.",
+    "toy_adaptation": {
+      "provenance": "New 4-by-4 coordinate fixture illustrating the standard coloring theorem; independently specified and checked. Development-only; not a holdout or source-text training example.",
+      "problem": "Tile a 4-by-4 board after removing (0,0) and (3,3), using orthogonally adjacent 2-cell dominoes without overlap.",
+      "solution": "Impossible: 6 cells have even coordinate sum and 8 have odd sum, while every legal domino covers one of each.",
+      "verification": "Check the color contribution of every legal domino, then exhaustively verify zero perfect tilings. As a limitation control, the isolated cells {(0,0),(0,3)} have balanced colors but are still untileable."
+    },
+    "applicability": [
+      "Moves preserve a count, parity, or weighted sum.",
+      "An invariant can disprove reachability without exploring every move order."
+    ],
+    "limits": [
+      "Balanced colors are necessary, not sufficient, on arbitrary regions.",
+      "Diagonal pieces or changed move rules invalidate this particular invariant."
+    ],
+    "falsifiable_test": "Enumerate allowed placements and reject the invariant if any placement changes the color-count difference."
+  },
+  {
+    "id": "targeted-counterexample-polynomial",
+    "methods": [
+      "counterexample",
+      "factorization",
+      "test a universal claim"
+    ],
+    "source": {
+      "url": "https://web.stanford.edu/class/math79si/Math79SINotes_1.pdf",
+      "author": "Mason Rogers",
+      "title": "Math 79SI Notes: Introduction to Mathematical Questions and Answers",
+      "license_basis": "Public Stanford-hosted author-labelled notes; redistribution license not verified. Link and short original method summary only; no source passages redistributed. Cited reading reference only; source text is not included and training permission is not asserted. Source inspected 2026-10-16; evidence: Problem 1.3, printed p. 4; author on p. 1."
+    },
+    "documented_evidence": "Rogers refutes a universal prime-generating claim using deliberately chosen inputs that make the polynomial factor. Many initial successes do not prove the universal statement.",
+    "reconstruction": "The coefficient 11 and its small arithmetic test are a newly written instantiation of the general polynomial family discussed in the notes; no private reasoning is claimed.",
+    "toy_adaptation": {
+      "provenance": "New development arithmetic fixture using n^2+n+11, rather than the source's central n^2+n+41 example. Development-only; not a holdout or source-text training example.",
+      "problem": "A conjecture says n^2+n+11 is prime for every nonnegative integer n. Test a strategically chosen input.",
+      "solution": "At n=10, the value is 121=11*11, so the conjecture is false. In general n=p-1 makes n^2+n+p equal p^2.",
+      "verification": "Check that inputs 0 through 9 give primes, then verify the exact composite factorization at 10. A single valid counterexample settles this universal claim."
+    },
+    "applicability": [
+      "Disproving a universal statement.",
+      "Inputs can be chosen to expose divisibility or a degenerate boundary."
+    ],
+    "limits": [
+      "Failure to find a counterexample is not proof over an infinite domain.",
+      "Ensure the chosen input belongs to the stated domain."
+    ],
+    "falsifiable_test": "Verify both 10 is in the domain and 10*10+10+11 equals 11*11 before accepting the refutation."
+  },
+  {
+    "id": "visual-area-partition",
+    "methods": [
+      "visual interpretation",
+      "decomposition",
+      "algebraic cross-check"
+    ],
+    "source": {
+      "url": "https://mathcs.clarku.edu/~djoyce/elements/bookII/propII4.html",
+      "author": "Euclid; online edition by David E. Joyce",
+      "title": "Elements, Book II, Proposition 4",
+      "license_basis": "Ancient mathematical proposition is public domain; reuse license of Joyce's modern text/diagram is unverified. Link and original factual summary only; do not copy the modern translation, diagram, or applet. Cited reading reference only; source text is not included and training permission is not asserted. Source inspected 2026-10-16; evidence: Proposition II.4 statement and geometric proof."
+    },
+    "documented_evidence": "Proposition II.4 relates the square on a whole segment to squares on its two parts and two rectangles. The proof establishes the piece shapes and combines their areas.",
+    "reconstruction": "The numerical coordinates and unit-cell coverage check below are new. They are a modern pedagogical verification, not Euclid's historical construction or Joyce's diagram.",
+    "toy_adaptation": {
+      "provenance": "New coordinate-based square partition with side split 3+5; no external image or wording copied. Development-only; not a holdout or source-text training example.",
+      "problem": "Partition [0,8] by [0,8] at x=3 and y=3. Account for every unit of area.",
+      "solution": "The four rectangular areas are 9,15,15,25, totaling 64=(3+5)^2.",
+      "verification": "Enumerate all 64 unit cells and assign each to exactly one rectangle; also check 9+15+15+25=64."
+    },
+    "applicability": [
+      "Area identities, geometric decompositions, and diagram-to-equation translation."
+    ],
+    "limits": [
+      "A suggestive picture alone does not establish lengths, right angles, or absence of overlap.",
+      "One numerical example checks an instance, not the general identity.",
+      "This area interpretation assumes nonnegative lengths."
+    ],
+    "falsifiable_test": "Reject the partition if any unit cell is omitted or counted twice, even when a drawn picture appears convincing."
+  },
+  {
+    "id": "graph-odd-endpoints",
+    "methods": [
+      "graph abstraction",
+      "degree parity",
+      "witness and lower bound"
+    ],
+    "source": {
+      "url": "https://www.gutenberg.org/files/16713/16713-h/16713-h.htm",
+      "author": "Henry Ernest Dudeney",
+      "title": "Amusements in Mathematics, solution 240: The Union Jack",
+      "license_basis": "Project Gutenberg ebook 16713 records Public domain in the USA at https://www.gutenberg.org/ebooks/16713 ; status elsewhere must be checked. Short original summary and independently specified graph only. No source diagram reproduced; avoid implying worldwide public-domain status. Cited reading reference only; source text is not included and training permission is not asserted. Source inspected 2026-10-16; evidence: Solution 240 describes sixteen odd nodes and eight required strokes."
+    },
+    "documented_evidence": "Dudeney uses the count of odd-degree nodes to determine the number of separate drawing strokes, then seeks short remaining strokes to maximize a selected one.",
+    "reconstruction": "The labelled five-edge graph, explicit trail, and added-edge rejection test are newly written. The applicability conditions below state assumptions needed for the graph theorem.",
+    "toy_adaptation": {
+      "provenance": "New simple undirected graph on vertices A,B,C,D; not a reproduction of the Union Jack puzzle. Development-only; not a holdout or source-text training example.",
+      "problem": "Draw edges AB, BC, CD, DA, AC once each in one continuous stroke, allowing vertices to be revisited.",
+      "solution": "A-B-C-D-A-C uses every edge once. A and C have odd degree; B and D have even degree. Adding BD creates four odd-degree vertices and rules out a one-stroke trail.",
+      "verification": "Check route adjacency, edge multiplicities, and endpoint degrees. Exhaustive edge-trail search confirms existence before adding BD and absence afterward."
+    },
+    "applicability": [
+      "Connected undirected edge-covering drawing or routing puzzles.",
+      "Geometry can be discarded only after junctions and edges are identified correctly."
+    ],
+    "limits": [
+      "Edge coverage is different from visiting each vertex once.",
+      "Disconnected edge-bearing components need separate treatment.",
+      "Directed edges, crossings without junctions, and permission to retrace change the model."
+    ],
+    "falsifiable_test": "If the image has a crossing that is not a junction, rebuild the graph before applying its degree counts."
+  }
+]

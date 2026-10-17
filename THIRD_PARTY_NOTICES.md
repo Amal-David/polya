@@ -32,3 +32,12 @@ challenge media are bundled.
 
 Pydantic, cryptography, optional solvers and their dependencies retain their
 respective licenses. No dependency distributions are bundled in this source tree.
+
+# Educational method references
+
+The method library at `polya/methods/data/` contains independently written
+descriptions and original toy fixtures with links to source readings. It does not
+bundle source books, prose, code or figures. Its per-record `license_basis` and
+`SOURCE-NOTES.md` retain source-specific restrictions, including CC BY-NC-SA 4.0
+and jurisdiction-specific public-domain status. The repository license does not
+grant rights in the linked sources or make them a cleared training corpus.

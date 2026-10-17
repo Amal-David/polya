@@ -130,6 +130,7 @@ jobs:
       - name: Exercise the installed artifact, not the source checkout
         run: |
           python -I -m polya doctor
+          python -I -c 'from polya import run; r=run("method.retrieve",{"query":"parity invariant","limit":1})["result"]; assert len(r["matches"])==1; assert r["matches"][0]["example"]["source"]["license_basis"]'
           python -I -c 'from polya import run; r=run("symbolic.analyze",{"model":{"variables":{"x":{"values":[4]}}},"backend":"z3"})["result"]; assert r["forced_values"]=={"x":4}'
       - run: python scripts/benchmark_runtime.py --repeats 3 --words 2000 --output runtime-benchmark.json
       - run: python scripts/benchmark_runtime.py --repeats 1 --words 200 --profile runtime.prof --output instrumented.json

@@ -80,3 +80,11 @@ For evidence packets, next-experiment choice, agent councils and restartable
 artifact handles, read docs/agents/council.md relative to the repository root.
 The host runs actual subagents. Never present role prompts or fixture callbacks
 as independently executed agents; record missing roles and unresolved objections.
+
+## Source-backed educational methods
+
+For generic educational puzzles, read [method selection](../../../docs/agents/method-learning.md).
+`method.retrieve` returns source-linked teaching cases, not solution evidence.
+The optional [method skill](../../../skills/polya-method/SKILL.md) describes fresh
+proposal contexts with separately retained evidence and equal-budget comparisons.
+Archive and gold-scoring helpers are controller-only local APIs, not MCP tools.
