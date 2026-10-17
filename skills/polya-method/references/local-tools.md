@@ -27,4 +27,6 @@ packet = archive.fresh_packet('Original toy puzzle', evidence_ids=[],
 
 Archive publication uses atomic hard links on a local supporting filesystem and detects byte/hash corruption. It is not hardened against a same-user adversary or power-loss recovery. Deployment must deny proposer access to controller storage, and persist/enforce the global budget outside the packet.
 
+Fresh packets allow at most 65,536 problem characters, 4,096 scope characters and 32 selected evidence records. The complete canonical UTF-8 JSON packet, including metadata and record IDs, must be at most 2,000,000 bytes; several individually valid records can exceed this aggregate limit.
+
 Evaluation functions live in `polya.methods.evaluation`. `build_context` exposes only id/problem plus the arm's allowed skill and validated retrieval envelopes. Schema checks cannot detect a hidden answer embedded as text inside an otherwise valid reference; retrieval must be from a frozen, independently curated development library. Golds and scorer access remain evaluator-only. Read evaluation.md before using the harness for claims.

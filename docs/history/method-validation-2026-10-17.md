@@ -17,14 +17,14 @@ account data and puzzle-specific operational workflows are not included.
 
 On CPython 3.12.14 / Linux:
 
-- `python -m pytest -q -rs`: **1268 passed, 42 skipped, 241 subtests passed**;
+- `python -m pytest -q -rs`: **1274 passed, 42 skipped, 241 subtests passed**;
   two existing dependency-deprecation warnings. The earlier full run had one
   inventory failure, because the deliberately added operation changed 53 to 54.
   The exact-count assertion was updated with an explicit `method.retrieve`
   membership check, then the full suite was rerun successfully.
 - `python -m pytest -q tests/test_method_learning.py
   tests/test_method_integrity_review.py tests/test_method_integration.py`:
-  **48 passed**, independently reproduced by a separate reviewer.
+  **54 passed**, independently reproduced by a separate reviewer.
 - `python -m pytest -q tests/test_agent_setup.py tests/test_agent_discovery.py`:
   **8 passed** after final documentation edits.
 - `python scripts/verify_method_examples.py`: all **six original development
@@ -64,6 +64,16 @@ JSON float overflow and schema whitespace/end-of-ID mismatches. Additional check
 cover binary reference fingerprints, nested package/data receipt fingerprints,
 Python-only JSON coercions, malformed inputs, registry/CLI/MCP parity, concurrent
 duplicate publication and nested compatibility-module identity.
+
+Post-publication review identified an aggregate fresh-packet size gap despite
+per-record archive bounds. Four new size-limit cases failed on the initial code.
+The correction caps problem/scope text and validates the complete canonical
+UTF-8 packet before reading evidence, then incrementally after each selected
+record. Six added cases cover inclusive text and exact 2,000,000-byte boundaries,
+one-byte overflow, multibyte text, lone surrogates, metadata overhead and stopping
+before further reads. Independent review reproduced all 54 method tests and
+additional Unicode/escaping probes. The subsequent full run above passed in
+94.98 seconds; the initial published revision had passed 1268 tests locally.
 
 The archive is append-only through its API and tamper-evident, not protected from
 a same-user writer. Reported usage is not independent metering. The development

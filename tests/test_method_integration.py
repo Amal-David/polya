@@ -172,3 +172,79 @@ def test_six_development_fixtures_pass_independent_checks():
                             capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
     assert result.stdout.count('PASS ') == 7
+
+
+@pytest.mark.parametrize('field,limit', [('problem', 65_536), ('scope', 4_096)])
+def test_fresh_packet_text_limits_reject_before_archive_reads(tmp_path, monkeypatch, field, limit):
+    from polya.methods import library
+
+    def unexpected_read(_path):
+        pytest.fail('oversized text must be rejected before archive reads')
+
+    monkeypatch.setattr(library, 'read_json', unexpected_read)
+    args = {'problem': 'toy', 'scope': 'educational', 'evidence_ids': ['a' * 64],
+            'remaining_budget': {}}
+    args[field] = 'x' * (limit + 1)
+    with pytest.raises(ValueError, match=field):
+        Archive(tmp_path).fresh_packet(**args)
+    args['evidence_ids'] = []
+    args[field] = 'x' * limit
+    assert Archive(tmp_path).fresh_packet(**args)[field] == args[field]
+
+
+def test_fresh_packet_rejects_aggregate_before_reading_further_records(tmp_path, monkeypatch):
+    from polya.methods import library
+
+    archive = Archive(tmp_path)
+    h = archive.record_verified('Synthetic size check', {'padding': 'x' * 1_050_000}, 'test')
+    read = library.read_json
+    reads = []
+
+    def counted_read(path):
+        reads.append(path)
+        return read(path)
+
+    monkeypatch.setattr(library, 'read_json', counted_read)
+    with pytest.raises(ValueError, match='2 MB'):
+        archive.fresh_packet('toy', evidence_ids=[h, h, h], remaining_budget={})
+    assert len(reads) == 2
+
+
+def test_fresh_packet_aggregate_counts_utf8_bytes_and_json_overhead(tmp_path):
+    archive = Archive(tmp_path)
+    h = archive.record_verified('Synthetic Unicode check', {'padding': '\u20ac' * 340_000}, 'test')
+    with pytest.raises(ValueError, match='2 MB'):
+        archive.fresh_packet('toy', evidence_ids=[h, h], remaining_budget={})
+
+    # Independently compute an exact serialized boundary, including record ID,
+    # metadata, JSON punctuation and the extra UTF-8 bytes of a Unicode character.
+    empty = archive.record_verified('Synthetic exact-boundary check', {'padding': '\u20ac'}, 'test')
+    packet = archive.fresh_packet('toy', evidence_ids=[empty], remaining_budget={})
+    encode = lambda value: json.dumps(value, sort_keys=True, separators=(',', ':'),
+                                     ensure_ascii=False, allow_nan=False).encode('utf-8')
+    padding = 'x' * (2_000_000 - len(encode(packet)))
+    exact = archive.record_verified('Synthetic exact-boundary check', {'padding': '\u20ac' + padding}, 'test')
+    packet = archive.fresh_packet('toy', evidence_ids=[exact], remaining_budget={})
+    assert len(encode(packet)) == 2_000_000
+    too_large = archive.record_verified('Synthetic exact-boundary check',
+                                         {'padding': '\u20ac' + padding + 'x'}, 'test')
+    with pytest.raises(ValueError, match='2 MB'):
+        archive.fresh_packet('toy', evidence_ids=[too_large], remaining_budget={})
+
+
+@pytest.mark.parametrize('field', ['problem', 'scope'])
+def test_fresh_packet_validates_utf8_before_evidence_reads(tmp_path, monkeypatch, field):
+    from polya.methods import library
+
+    def unexpected_read(_path):
+        pytest.fail('invalid base packet must be rejected before archive reads')
+
+    monkeypatch.setattr(library, 'read_json', unexpected_read)
+    args = {'problem': 'toy', 'scope': 'educational', 'evidence_ids': ['a' * 64],
+            'remaining_budget': {}}
+    args[field] = '\ud800'
+    with pytest.raises(ValueError):
+        Archive(tmp_path).fresh_packet(**args)
+    args['evidence_ids'] = []
+    with pytest.raises(ValueError):
+        Archive(tmp_path).fresh_packet(**args)

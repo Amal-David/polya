@@ -108,12 +108,13 @@ class Archive:
 
     def fresh_packet(self, problem: str, *, evidence_ids: list[str], remaining_budget: dict,
                      scope: str = 'Educational toy puzzles only; no external target actions.') -> dict:
-        """Only explicitly selected verified evidence; no prior proposals or chain of thought."""
-        if (not isinstance(problem, str) or not problem.strip() or
-                not isinstance(evidence_ids, list) or len(evidence_ids) > 32):
-            raise ValueError('problem required; at most 32 evidence items')
-        if not isinstance(scope, str) or not scope.strip():
-            raise ValueError('scope required')
+        """Selected evidence only; at most 2 MB of canonical UTF-8 JSON in total."""
+        if (not isinstance(problem, str) or len(problem) > 65_536 or not problem.strip()):
+            raise ValueError('problem required; at most 65,536 characters')
+        if not isinstance(evidence_ids, list) or len(evidence_ids) > 32:
+            raise ValueError('at most 32 evidence items')
+        if not isinstance(scope, str) or len(scope) > 4_096 or not scope.strip():
+            raise ValueError('scope required; at most 4,096 characters')
         allowed = {'input_tokens', 'output_tokens', 'tool_calls', 'wall_seconds', 'resets'}
         if not isinstance(remaining_budget, dict) or set(remaining_budget) - allowed:
             raise ValueError('unknown budget fields')
@@ -124,6 +125,12 @@ class Archive:
             if k != 'wall_seconds' and type(v) is not int:
                 raise ValueError('integer counters required')
         evidence = []
+        packet = {'problem': problem, 'scope': scope, 'verified_evidence': evidence,
+                  'remaining_budget': remaining_budget.copy(),
+                  'duplicate_check': 'controller checks canonical experiment hash before execution'}
+        # Validate even an empty packet, including UTF-8 encodability and budget
+        # serialization. Do this before reading any evidence from disk.
+        canonical(packet)
         for h in evidence_ids:
             if not isinstance(h, str) or len(h) != 64 or any(c not in '0123456789abcdef' for c in h):
                 raise ValueError('invalid evidence id')
@@ -132,6 +139,7 @@ class Archive:
             if digest(item) != h:
                 raise ValueError('evidence hash mismatch')
             evidence.append({'id': h, **item})
-        return {'problem': problem, 'scope': scope, 'verified_evidence': evidence,
-                'remaining_budget': remaining_budget.copy(),
-                'duplicate_check': 'controller checks canonical experiment hash before execution'}
+            # Include JSON punctuation, IDs, metadata and multibyte text. Stop as
+            # soon as one candidate exceeds the bound, before reading the next.
+            canonical(packet)
+        return packet

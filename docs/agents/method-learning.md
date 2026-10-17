@@ -93,6 +93,10 @@ API, **not an MCP operation or an access-isolated controller service**.
 - `fresh_packet` carries the original problem, scope, selected evidence and
   remaining budget. It omits old proposal narratives. It does not launch a fresh
   model session, enforce a budget or prevent the proposer reading other files.
+  The problem is capped at 65,536 characters, scope at 4,096 characters and
+  evidence selection at 32 records. The complete canonical UTF-8 JSON packet,
+  including record IDs and metadata, must fit within 2,000,000 bytes. Validation
+  stops at the first oversized candidate, before reading another evidence record.
 
 Reset when repeated rejected approaches or narrative anchoring justify a new
 interpretation, under a predeclared policy. Keep unsuccessful attempt identities
