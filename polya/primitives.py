@@ -67,13 +67,23 @@ def grid_read(text: str, rows: int, columns: int, order: str, reverse: bool = Fa
         offsets = [r * columns + c for r in range(rows)
                    for c in (range(columns) if r % 2 == 0 else range(columns - 1, -1, -1))]
     elif order == "column_snake":
-        offsets = [r * columns + c for c in range(columns)
-                   for r in (range(rows) if c % 2 == 0 else range(rows - 1, -1, -1))]
+        offsets = (list(range(columns)) if rows == 1 else
+                   [index for c in range(columns)
+                    for index in (range(c, len(text), columns) if c % 2 == 0 else
+                                  range(c + (rows - 1) * columns, c - 1, -columns))])
     else:
         raise ValueError("unsupported grid order")
+    if rows == 1:
+        read = text
+    elif order == "column_snake":
+        read = "".join(text[c::columns] if c % 2 == 0 else text[c::columns][::-1]
+                       for c in range(columns))
+    else:
+        read = "".join(text[i] for i in offsets)
     if reverse:
         offsets.reverse()
-    return {"text": "".join(text[i] for i in offsets), "source_offsets": offsets,
+        read = read[::-1]
+    return {"text": read, "source_offsets": offsets,
             "unit": "Unicode codepoint", "rows": rows, "columns": columns,
             "order": order, "reverse": reverse}
 

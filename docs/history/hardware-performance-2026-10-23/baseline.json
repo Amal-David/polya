@@ -1,0 +1,381 @@
+{
+  "recorded_at": "2026-10-23T08:23:01.034128+00:00",
+  "polya": "0.3.0",
+  "python": "3.12.9",
+  "platform": "macOS-27.2-arm64-arm-64bit",
+  "benchmark_source_sha256": "b28054d874bbd60164bf313d98b00d8ab79783a8f1476bc0c41ba395e95f0387",
+  "dependencies": {
+    "pydantic": "2.14.1",
+    "cryptography": "50.0.2"
+  },
+  "execution_mode": {
+    "gil_enabled": null,
+    "jit_available": false,
+    "jit_enabled": false,
+    "utf8_mode": false
+  },
+  "hardware": {
+    "cpu": {
+      "architecture": "arm64",
+      "description": "arm",
+      "logical_cpus": 14,
+      "process_logical_cpus": null,
+      "process_count_source": "unavailable"
+    },
+    "accelerators": {
+      "metal": {
+        "probe_status": "reported",
+        "devices": [
+          "Apple M4 Pro"
+        ]
+      },
+      "cuda": {
+        "probe_status": "tool_unavailable",
+        "devices": null
+      }
+    },
+    "polya_gpu_execution": "not_implemented",
+    "scope": "OS/tool observations only, not compute verification or backend admission. Unavailable probes mean unknown hardware. CPU counts do not establish a compute quota. Optional probes have a 3-second timeout each and accept at most 64 KB of stdout; only Apple display and NVIDIA device names are inspected."
+  },
+  "repeats": 20,
+  "cold_repeats": 2,
+  "capabilities": {
+    "backends": {
+      "z3": {
+        "available": true,
+        "version": "Z3 4.16.0.0",
+        "features": [
+          "boolean",
+          "integer_linear",
+          "bitvectors_unsigned",
+          "nested_dfa",
+          "unsat_core"
+        ]
+      },
+      "cpsat": {
+        "available": true,
+        "version": "9.15.6755",
+        "features": [
+          "boolean",
+          "integer_linear",
+          "all_different",
+          "top_level_dfa"
+        ],
+        "unsupported": [
+          "bitvectors",
+          "nested_dfa"
+        ]
+      },
+      "reference": {
+        "available": true,
+        "version": "0.2",
+        "features": [
+          "bounded_exhaustive",
+          "independent_evaluator"
+        ]
+      },
+      "aalpy": {
+        "available": true,
+        "version": "1.6.2",
+        "features": [
+          "optional_active_mealy_learning"
+        ]
+      },
+      "mcp": {
+        "available": true,
+        "version": "2025-06-18",
+        "features": [
+          "bundled_stdio_agent_transport"
+        ]
+      }
+    },
+    "scope": "Availability is not a validation certificate; see docs/history/results-0.2.md for actual test coverage."
+  },
+  "workloads": [
+    {
+      "operation_id": "grid.read",
+      "scope": "10000 Unicode codepoints and offsets",
+      "public_api": {
+        "median_ms": 1.459375,
+        "p50_ms": 1.459375,
+        "p95_ms": 1.4739878499999999,
+        "min_ms": 1.354708,
+        "max_ms": 1.475334,
+        "samples_ms": [
+          1.409084,
+          1.354708,
+          1.373542,
+          1.39675,
+          1.459916,
+          1.458834,
+          1.473041,
+          1.459375,
+          1.462167,
+          1.459125,
+          1.470167,
+          1.475334,
+          1.459375,
+          1.454625,
+          1.472625,
+          1.456083,
+          1.473917,
+          1.450333,
+          1.471,
+          1.459375
+        ]
+      },
+      "inputs_sha256": "3f5bc3c9dfb85702b88f78e5c2f92bdb53580c55c24fbdb47bb403911ddd10e0",
+      "kernel_only": {
+        "median_ms": 0.6341669999999999,
+        "p50_ms": 0.6341669999999999,
+        "p95_ms": 0.67402085,
+        "min_ms": 0.630625,
+        "max_ms": 0.698167,
+        "samples_ms": [
+          0.67275,
+          0.630625,
+          0.636334,
+          0.632375,
+          0.634417,
+          0.698167,
+          0.649125,
+          0.644417,
+          0.639833,
+          0.633875,
+          0.635875,
+          0.63375,
+          0.640583,
+          0.630792,
+          0.633875,
+          0.632083,
+          0.636875,
+          0.633708,
+          0.633917,
+          0.632916
+        ]
+      },
+      "cold": {
+        "process_wall": {
+          "median_ms": 217.0299165,
+          "p50_ms": 217.0299165,
+          "p95_ms": 227.96529135,
+          "min_ms": 204.8795,
+          "max_ms": 229.180333,
+          "samples_ms": [
+            229.180333,
+            204.8795
+          ]
+        },
+        "first_public_call": {
+          "median_ms": 6.110583500000001,
+          "p50_ms": 6.110583500000001,
+          "p95_ms": 6.18258305,
+          "min_ms": 6.030584,
+          "max_ms": 6.190583,
+          "samples_ms": [
+            6.190583,
+            6.030584
+          ]
+        },
+        "peak_rss_bytes_samples": [
+          53526528,
+          53379072
+        ],
+        "implementation_fingerprint_samples": [
+          "cbc9b70e27beae0af031adc0e09347813918ed26b0cf5af7eccfc0f61e5afa02",
+          "cbc9b70e27beae0af031adc0e09347813918ed26b0cf5af7eccfc0f61e5afa02"
+        ],
+        "scope": "Fresh interpreter per sample. Process wall includes startup/imports, call, verification and worker serialization. First-call timing starts after imports. Filesystem/OS caches are not flushed."
+      },
+      "memory": {
+        "python_tracemalloc_peak_bytes": 752654,
+        "process_peak_rss_bytes": 55836672,
+        "scope": "Python allocations during one separate call; RSS is cumulative process high-water, not incremental operation memory."
+      },
+      "diagnostic_phases": {
+        "measurements": {
+          "backend_version_discovery": {
+            "median_ms": 0.7845835,
+            "p50_ms": 0.7845835,
+            "p95_ms": 0.8468396000000001,
+            "min_ms": 0.72625,
+            "max_ms": 0.941167,
+            "samples_ms": [
+              0.841875,
+              0.8195,
+              0.806625,
+              0.785167,
+              0.784,
+              0.781291,
+              0.775834,
+              0.779958,
+              0.941167,
+              0.79975,
+              0.796208,
+              0.7865,
+              0.787292,
+              0.79075,
+              0.734917,
+              0.726875,
+              0.741,
+              0.738125,
+              0.72625,
+              0.733125
+            ]
+          },
+          "input_validation_and_dump": {
+            "median_ms": 0.0025,
+            "p50_ms": 0.0025,
+            "p95_ms": 0.0029997000000000005,
+            "min_ms": 0.002375,
+            "max_ms": 0.003792,
+            "samples_ms": [
+              0.003792,
+              0.002833,
+              0.002625,
+              0.002583,
+              0.0025,
+              0.0025,
+              0.002458,
+              0.002417,
+              0.002416,
+              0.002459,
+              0.002958,
+              0.0025,
+              0.002625,
+              0.002375,
+              0.002542,
+              0.002458,
+              0.002459,
+              0.002458,
+              0.0025,
+              0.002458
+            ]
+          },
+          "request_preparation": {
+            "median_ms": 0.1072085,
+            "p50_ms": 0.1072085,
+            "p95_ms": 0.1083598,
+            "min_ms": 0.1065,
+            "max_ms": 0.109667,
+            "samples_ms": [
+              0.109667,
+              0.108291,
+              0.107875,
+              0.106708,
+              0.106625,
+              0.106917,
+              0.106834,
+              0.106625,
+              0.107041,
+              0.107542,
+              0.107292,
+              0.107,
+              0.1065,
+              0.107,
+              0.108167,
+              0.107125,
+              0.107583,
+              0.108209,
+              0.107625,
+              0.10775
+            ]
+          },
+          "output_validation_and_dump": {
+            "median_ms": 0.3560625,
+            "p50_ms": 0.3560625,
+            "p95_ms": 0.5600479,
+            "min_ms": 0.171667,
+            "max_ms": 0.667833,
+            "samples_ms": [
+              0.172084,
+              0.179333,
+              0.171667,
+              0.180042,
+              0.667833,
+              0.523833,
+              0.446083,
+              0.491458,
+              0.554375,
+              0.380792,
+              0.39425,
+              0.383083,
+              0.3565,
+              0.354792,
+              0.355625,
+              0.40625,
+              0.218542,
+              0.181166,
+              0.190125,
+              0.18775
+            ]
+          },
+          "receipt_hashing": {
+            "median_ms": 0.5327500000000001,
+            "p50_ms": 0.5327500000000001,
+            "p95_ms": 2.4412729000000017,
+            "min_ms": 0.476375,
+            "max_ms": 4.702708,
+            "samples_ms": [
+              0.486875,
+              0.485709,
+              0.481875,
+              0.559625,
+              0.490666,
+              0.486542,
+              0.48825,
+              4.702708,
+              0.505875,
+              0.491542,
+              0.478291,
+              0.476375,
+              0.957583,
+              2.32225,
+              0.921292,
+              1.116041,
+              0.842334,
+              0.9345,
+              0.872917,
+              0.831583
+            ]
+          },
+          "envelope_serialization": {
+            "median_ms": 0.38275000000000003,
+            "p50_ms": 0.38275000000000003,
+            "p95_ms": 0.4033976000000001,
+            "min_ms": 0.356375,
+            "max_ms": 0.56375,
+            "samples_ms": [
+              0.56375,
+              0.372917,
+              0.368792,
+              0.359542,
+              0.359791,
+              0.356417,
+              0.356708,
+              0.356375,
+              0.358375,
+              0.368333,
+              0.384917,
+              0.382792,
+              0.382959,
+              0.382708,
+              0.384209,
+              0.394958,
+              0.386167,
+              0.386583,
+              0.384209,
+              0.393833
+            ]
+          }
+        },
+        "scope": "Independent diagnostic repetitions over validated fixtures. These overlap (request preparation includes validation/discovery) and must not be summed. Kernel timing includes translation, solving and independent verification; cProfile retains their call detail. Transport and queueing are not measured here."
+      },
+      "implementation_fingerprint": "cbc9b70e27beae0af031adc0e09347813918ed26b0cf5af7eccfc0f61e5afa02",
+      "backend": null,
+      "status": "COMPLETED",
+      "note": "Kernel timing excludes input/output validation and receipts; it is not a valid replacement API."
+    }
+  ],
+  "limits": "Synthetic microbenchmarks, not model reasoning. Warm samples exclude interpreter startup; cold process-wall samples include it. Transport, queueing and true model-based full-session latency remain unrun. No Rust implementation or agent speedup was measured. Small-sample p95 is descriptive, not a service SLA."
+}

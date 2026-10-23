@@ -48,6 +48,36 @@ and a standalone binary would still carry solver dependencies and platform ABIs.
 
 ## Measure
 
+`polya doctor` reports logical CPU counts and, when the interpreter/OS exposes it,
+the calling process's affinity count. These counts do not establish a container's
+CPU quota. `polya doctor --probe-accelerators` additionally queries local Apple
+display or NVIDIA device names with a three-second timeout per tool. Missing tools,
+malformed output and probe errors remain explicit; they do not prove absent GPUs.
+No GPU execution backend is implemented or admitted by this inventory. Default
+doctor calls do not launch the optional probes or import solver/validation packages.
+
+Operation and local transport benchmarks include the same hardware observations.
+The operation report also binds fixtures to receipt input hashes, records core
+dependency versions and execution mode, and hashes the benchmark source at import.
+Use `--operation grid.read` to focus on one declared workload. Comparison requires
+matching recorded hardware, runtime/dependencies, harness source, fixtures and
+repeat budgets; it recomputes medians from raw samples instead of trusting saved
+summary numbers. Metadata matching is not authentication or proof of the same host.
+
+Run the following from two clean revisions using the identical measurement harness
+and environment; copy the first report to the candidate checkout:
+
+```bash
+python scripts/benchmark_operations.py --operation grid.read --repeats 20 --cold-repeats 2 --output before.json
+python scripts/benchmark_operations.py --operation grid.read --repeats 20 --cold-repeats 2 --baseline before.json --output after.json
+```
+
+The baseline file is parsed as bounded strict JSON. A mismatched experiment or
+invalid/insufficient timing samples produces an error instead of a speedup.
+Public API and kernel-only ratios remain separate. See the
+[October 23 grid measurements](../history/hardware-performance-2026-10-23.md) for
+the current bounded optimization and raw evidence.
+
 ```bash
 python scripts/benchmark_operations.py --repeats 5 --profile /tmp/polya-profile.txt --output /tmp/polya-benchmark.json
 python -m cProfile -o structured-demo.prof -m examples.structured_demo
