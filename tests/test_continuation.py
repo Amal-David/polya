@@ -614,6 +614,21 @@ def test_remote_final_implementation_change_is_rejected(tmp_path):
         assert workflow.handoff(ticket['ticket_ref'])['remote_pages'] == []
 
 
+def test_handoff_snapshot_count_does_not_grow_with_remote_pages(tmp_path):
+    with Continuation(tmp_path) as workflow:
+        ticket = prepare(workflow)
+        with patch.object(workflow.ledger, 'snapshot', wraps=workflow.ledger.snapshot) as snapshot:
+            workflow.handoff(ticket['ticket_ref'])
+            initial_reads = snapshot.call_count
+        for start in range(4):
+            workflow.run_remote_page(ticket['ticket_ref'], catalog.run, start=start, max_trials=1)
+        with patch.object(workflow.ledger, 'snapshot', wraps=workflow.ledger.snapshot) as snapshot:
+            report = workflow.handoff(ticket['ticket_ref'])
+            assert snapshot.call_count == initial_reads
+        assert len(report['remote_pages']) == 4
+        assert report['local_coverage']['counts']['attempted'] == 0
+
+
 def test_remote_retraction_also_invalidates_local_replay(tmp_path):
     with Continuation(tmp_path) as workflow:
         ticket = prepare(workflow)
