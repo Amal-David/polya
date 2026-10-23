@@ -5,10 +5,14 @@ from contextlib import asynccontextmanager
 import hashlib
 import hmac
 import json
+import logging
 import os
 from pathlib import Path
+import re
+from time import monotonic
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
+from uuid import uuid4
 
 import anyio
 from mcp.server.lowlevel import Server as MCPServer
@@ -23,6 +27,15 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from polya import __version__
 from polya.mcp_server import MAX_LINE, TOOLS, Server
+
+
+LOGGER = logging.getLogger('uvicorn.error')
+
+
+def deployed_revision() -> str | None:
+    """Expose only a complete Git object ID, never arbitrary environment text."""
+    revision = os.environ.get('RENDER_GIT_COMMIT', '')
+    return revision if re.fullmatch(r'[0-9a-f]{40}', revision) else None
 
 
 class Authentication:
@@ -77,18 +90,55 @@ def create_app(token: str, public_url: str) -> ASGIApp:
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
-        response = await anyio.to_thread.run_sync(
-            handler.handle,
-            {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
-             'params': {'name': name, 'arguments': arguments}},
-            limiter=limiter,
-        )
-        if 'error' in response:
-            raise ValueError(response['error']['message'])
-        result = response['result']
-        if len(json.dumps(result, ensure_ascii=True, allow_nan=False)) > 2_200_000:
-            raise ValueError('Output exceeds transport limit; reduce the operation scope')
-        return CallToolResult.model_validate(result)
+        from polya.catalog import REGISTRY, canonical_operation_id
+
+        # Never log arguments, result bodies, source labels, hashes of user inputs,
+        # URLs, credentials or exception messages. IDs must come from our registry.
+        requested = arguments.get('operation_id')
+        operation_id = canonical_operation_id(requested) if type(requested) is str else None
+        if operation_id not in REGISTRY:
+            operation_id = None
+        execution_id = uuid4().hex
+        started = monotonic()
+        outcome = 'internal_error'
+
+        def failure(message: str) -> CallToolResult:
+            return CallToolResult.model_validate({
+                'isError': True, '_meta': {'polya/execution_id': execution_id},
+                'content': [{'type': 'text', 'text': json.dumps({
+                    'message': message,
+                    'claim': 'No puzzle hypothesis was rejected by this execution error.',
+                })}],
+            })
+
+        try:
+            response = await anyio.to_thread.run_sync(
+                handler.handle,
+                {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
+                 'params': {'name': name, 'arguments': arguments}},
+                limiter=limiter,
+            )
+            if 'error' in response:
+                outcome = 'protocol_error'
+                return failure('Invalid tool call; inspect the advertised tool schema.')
+            result = response['result']
+            result['_meta'] = {'polya/execution_id': execution_id}
+            if len(json.dumps(result, ensure_ascii=True, allow_nan=False)) > 2_200_000:
+                outcome = 'output_limit'
+                return failure('Output exceeds transport limit; reduce the operation scope')
+            validated = CallToolResult.model_validate(result)
+            outcome = 'tool_error' if validated.isError else 'ok'
+            return validated
+        except Exception:
+            return failure('Internal tool execution failure; no completed result is available.')
+        finally:
+            LOGGER.info(json.dumps({
+                'event': 'polya.tool_call', 'execution_id': execution_id,
+                'tool': name if name in ('puzzle.find', 'puzzle.run') else None,
+                'operation_id': operation_id, 'outcome': outcome,
+                'elapsed_ms': round((monotonic() - started) * 1000, 3),
+                'version': __version__, 'revision': deployed_revision(),
+            }, allow_nan=False, separators=(',', ':')))
 
     manager = StreamableHTTPSessionManager(
         server, stateless=True, json_response=True, max_request_body_size=MAX_LINE,
@@ -103,7 +153,8 @@ def create_app(token: str, public_url: str) -> ASGIApp:
             yield
 
     async def health(request: Request) -> JSONResponse:
-        return JSONResponse({'status': 'ok', 'version': __version__})
+        return JSONResponse({'status': 'ok', 'version': __version__,
+                             'revision': deployed_revision()})
 
     app = Starlette(routes=[Route('/healthz', health), Mount('/', app=manager.handle_request)],
                     lifespan=lifespan)

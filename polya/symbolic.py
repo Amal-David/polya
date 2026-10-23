@@ -198,6 +198,10 @@ def compare_hypotheses(model:dict,cases:dict[str,list[str]],backend='auto',timeo
                 if variable in rz['forced_values'] and rz['forced_values'][variable]!=av:
                     experiments.append({'variable':variable,'predictions':{a:av,z:rz['forced_values'][variable]},
                                         'observation_acquired':False})
-    return {'cases':results,'distinguishing_observations':experiments,
-            'complete':all(r.get('complete',False) for r in results.values()),
+    failed_cases={name:r['status'] for name,r in results.items()
+                  if r['status'] in ('UNAVAILABLE','UNSUPPORTED')}
+    complete=all(r.get('complete',False) for r in results.values())
+    return {'status':'EXECUTION_ERROR' if failed_cases else 'COMPLETE' if complete else 'PARTIAL',
+            'failed_cases':failed_cases,'cases':results,'distinguishing_observations':experiments,
+            'complete':complete,
             'scope':'Only differing forced values are proposed. An empty list does not prove cases equivalent; no evidence was acquired.'}

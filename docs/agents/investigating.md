@@ -61,6 +61,35 @@ Include a known positive, meaningful negatives, malformed inputs and budget case
 Use an independent evaluator, exhaustive small cases or a separate implementation.
 For interpretation claims, use held-out evidence or a different extraction route.
 
+### Bind checks to the submitted experiment
+
+Save the exact request, result and receipt together. In the caller's experiment
+record, bind them to the source artifact hash, transcription, normalization,
+active assumptions and answer projection. `receipt.inputs_sha256` identifies the
+validated operation inputs, including defaults; it does not hash the original
+source file or authenticate its transcription. A reproducible calculation can
+still use the wrong input.
+
+Run synthetic positive and negative controls through the same entry point,
+parsing and composition path as the experiment, with the same code revision and
+backend. A passing helper tested separately does not validate the submitted job.
+Check the actual request against the recorded source and conventions before
+using its result as evidence. If they disagree, retract dependent claims and
+rerun the corrected experiment with a new record.
+
+### Make uniqueness conditional on conventions
+
+Apply each counting or normalization convention consistently to every candidate.
+For example, the synthetic candidates `A-B` and `ABC` both contain three
+characters, but only `ABC` contains three letters. A length-three constraint is
+unique under the letters-only convention and ambiguous under the character
+convention. Neither computation determines which convention the source intends.
+
+Preserve plausible conventions as separate models or explicit hypotheses, and
+report uniqueness with the active assumptions and `answer_variables`. Also test
+the model without an uncertain restriction. See the executable
+[alternative-interpretation example](../guides/constraints.md#test-alternative-interpretations).
+
 If an extraction or assumption is corrected, revisit the claims that depend on it;
 do not erase history. For plans, keep the original plan with its receipt. The
 [ledger](../guides/execution.md#investigation-ledger) records receipt-linked pages

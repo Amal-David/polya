@@ -135,10 +135,10 @@ class ValidationError(ValueError):
 
 
 def _op(operation_id, title, description, request, kernel, terms, postcondition, limits, *, cacheable=True, example=None,
-        execution_error_statuses=(), recovery_hint=None, **result_fields):
+        execution_error_statuses=(), recovery_hint=None, version="1", **result_fields):
     result = output_model(operation_id.replace(".", "_") + "_result", **result_fields) if result_fields else None
     return Operation(operation_id, title, description, request, result, kernel, terms, postcondition, limits,
-                     cacheable=cacheable, example=deepcopy(example),
+                     version=version, cacheable=cacheable, example=deepcopy(example),
                      execution_error_statuses=tuple(execution_error_statuses), recovery_hint=recovery_hint)
 
 
