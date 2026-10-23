@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import argparse
 import cProfile
+import hashlib
+from importlib import metadata
 from datetime import datetime, timezone
 import io
 import json
+import math
 from pathlib import Path
 import platform
 import pstats
@@ -21,6 +24,10 @@ from polya import run, __version__
 from polya import catalog
 from polya.catalog import REGISTRY
 from polya.model import op
+from polya.hardware import inspect_hardware
+from polya.runtime import execution_mode
+
+BENCHMARK_SOURCE_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
 
 def workloads():
@@ -36,8 +43,8 @@ def workloads():
     return [
         ("candidate.expand", {"slots": [[str(i) for i in range(10)]] * 4,
                               "limit": 1000}, "1000 of 10000 ordered candidates"),
-        ("grid.read", {"text": "ABCD" * 2500, "rows": 100, "columns": 100,
-                       "order": "column_snake"}, "10000 codepoints and offsets"),
+        ("grid.read", {"text": "Aé雪🙂e\u0301 Z" * 1250, "rows": 100, "columns": 100,
+                       "order": "column_snake"}, "10000 Unicode codepoints and offsets"),
         ("automata.distinguish", {"left": machine, "right": machine},
          "equivalent 200-state Mealy models"),
         ("symbolic.analyze", {"model": {
@@ -52,7 +59,13 @@ def check_result(operation_id, result):
     if operation_id == "candidate.expand":
         assert result["emitted"] == 1000 and result["status"] == "PARTIAL"
     elif operation_id == "grid.read":
-        assert len(result["source_offsets"]) == 10000
+        text = workloads()[1][1]['text']
+        rows = [text[start:start + 100] for start in range(0, len(text), 100)]
+        expected = ''.join(''.join(column if index % 2 == 0 else column[::-1])
+                           for index, column in enumerate(zip(*rows)))
+        assert result['text'] == expected
+        assert sorted(result['source_offsets']) == list(range(len(text)))
+        assert ''.join(text[index] for index in result['source_offsets']) == expected
     elif operation_id == "automata.distinguish":
         assert result["status"] == "EQUIVALENT" and result["complete"]
     elif operation_id == "symbolic.analyze":
@@ -161,14 +174,19 @@ def diagnostic_phases(operation_id, inputs, raw, envelope, repeats):
             'scope': 'Independent diagnostic repetitions over validated fixtures. These overlap (request preparation includes validation/discovery) and must not be summed. Kernel timing includes translation, solving and independent verification; cProfile retains their call detail. Transport and queueing are not measured here.'}
 
 
-def benchmark(repeats=5, profile_path=None, cold_repeats=1):
+def benchmark(repeats=5, profile_path=None, cold_repeats=1, operation_ids=None):
     if type(repeats) is not int or not 1 <= repeats <= 20:
         raise ValueError('repeats must be in [1,20]')
     if type(cold_repeats) is not int or not 1 <= cold_repeats <= 5:
         raise ValueError('cold_repeats must be in [1,5]')
+    fixtures = workloads()
+    if operation_ids is not None and (not operation_ids or set(operation_ids) - {row[0] for row in fixtures}):
+        raise ValueError('select at least one declared benchmark workload')
     rows = []
     profiler = cProfile.Profile() if profile_path is not None else None
-    for index, (operation_id, inputs, scope) in enumerate(workloads()):
+    for index, (operation_id, inputs, scope) in enumerate(fixtures):
+        if operation_ids is not None and operation_id not in operation_ids:
+            continue
         operation = REGISTRY[operation_id]
         validated = operation.request.model_validate(inputs).model_dump(mode="json")
         public, envelope = measure(lambda: run(operation_id, inputs), repeats)
@@ -178,6 +196,7 @@ def benchmark(repeats=5, profile_path=None, cold_repeats=1):
         if profiler is not None:
             profiler.runcall(run, operation_id, inputs)
         rows.append({"operation_id": operation_id, "scope": scope, "public_api": public,
+                     "inputs_sha256": envelope['receipt']['inputs_sha256'],
                      "kernel_only": kernel, "cold": measure_cold(index, cold_repeats),
                      "memory": measure_memory(lambda: run(operation_id, inputs)),
                      "diagnostic_phases": diagnostic_phases(operation_id, inputs, raw, envelope, repeats),
@@ -192,10 +211,54 @@ def benchmark(repeats=5, profile_path=None, cold_repeats=1):
         profile_path.write_text(stream.getvalue(), encoding="utf-8")
     return {"recorded_at": datetime.now(timezone.utc).isoformat(), "polya": __version__,
             "python": platform.python_version(), "platform": platform.platform(),
+            "benchmark_source_sha256": BENCHMARK_SOURCE_SHA256,
+            "dependencies": {name: metadata.version(name) for name in ('pydantic', 'cryptography')},
+            "execution_mode": execution_mode(),
+            "hardware": inspect_hardware(probe_accelerators=True),
             "repeats": repeats, "cold_repeats": cold_repeats,
             "capabilities": run("backends.inspect", {})["result"],
             "workloads": rows,
             "limits": "Synthetic microbenchmarks, not model reasoning. Warm samples exclude interpreter startup; cold process-wall samples include it. Transport, queueing and true model-based full-session latency remain unrun. No Rust implementation or agent speedup was measured. Small-sample p95 is descriptive, not a service SLA."}
+
+
+def compare_reports(baseline, current):
+    for key in ('benchmark_source_sha256', 'python', 'platform', 'dependencies',
+                'execution_mode', 'hardware', 'capabilities', 'repeats', 'cold_repeats'):
+        if key not in baseline or key not in current or baseline[key] != current[key]:
+            raise ValueError(f'benchmark comparison requires matching {key}')
+    repeats = current['repeats']
+    if type(repeats) is not int or not 1 <= repeats <= 20:
+        raise ValueError('comparison repeats must be in [1,20]')
+    groups = []
+    for report in (baseline, current):
+        rows = report['workloads']
+        group = {row['operation_id']: row for row in rows}
+        if not rows or len(group) != len(rows):
+            raise ValueError('comparison requires distinct workload IDs')
+        groups.append(group)
+    if groups[0].keys() != groups[1].keys():
+        raise ValueError('comparison requires matching workloads')
+    comparisons = []
+    for oid, before in groups[0].items():
+        after = groups[1][oid]
+        for key in ('inputs_sha256', 'backend'):
+            if key not in before or key not in after or before[key] != after[key]:
+                raise ValueError(f'comparison requires matching {oid}.{key}')
+        row = {'operation_id': oid}
+        for metric in ('public_api', 'kernel_only'):
+            medians = []
+            for measured in (before, after):
+                samples = measured[metric]['samples_ms']
+                if len(samples) != repeats or any(type(v) not in (int, float) or not math.isfinite(v) or v <= 0 for v in samples):
+                    raise ValueError('comparison requires positive finite timing samples at the declared repeat count')
+                medians.append(summarize(samples)['median_ms'])
+            row[metric] = {'baseline_median_ms': medians[0], 'current_median_ms': medians[1],
+                           'observed_median_speedup': medians[0] / medians[1]}
+        comparisons.append(row)
+    return {'workloads': comparisons,
+            'scope': 'Matching recorded metadata, fixtures and repeat budgets; not proof of the same physical host. '
+                     'Medians are recomputed from raw samples. Kernel-only timing omits API guarantees. '
+                     'No statistical significance, cross-device, GPU or agent-session gain is established.'}
 
 
 def main(argv=None):
@@ -205,6 +268,9 @@ def main(argv=None):
     parser.add_argument("--cold-worker", type=int, choices=range(4), help=argparse.SUPPRESS)
     parser.add_argument("--profile", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--baseline", type=Path, help="Compare matching raw samples and metadata with a saved report")
+    parser.add_argument("--operation", action="append", choices=[row[0] for row in workloads()],
+                        help="Measure only the selected fixture; may be repeated")
     args = parser.parse_args(argv)
     if not 1 <= args.repeats <= 20:
         parser.error("--repeats must be in [1, 20]")
@@ -213,7 +279,14 @@ def main(argv=None):
     if args.cold_worker is not None:
         print(json.dumps(cold_worker(args.cold_worker), allow_nan=False))
         return 0
-    result = benchmark(args.repeats, args.profile, args.cold_repeats)
+    baseline = None
+    if args.baseline:
+        from polya.jsonio import loads
+        from scripts.evaluate_agents import read_bounded
+        baseline = loads(read_bounded(args.baseline, 2_000_000))
+    result = benchmark(args.repeats, args.profile, args.cold_repeats, args.operation)
+    if args.baseline:
+        result['comparison'] = compare_reports(baseline, result)
     text = json.dumps(result, indent=2, allow_nan=False) + "\n"
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)

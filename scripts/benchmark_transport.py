@@ -14,6 +14,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.benchmark_operations import measure_memory
+from polya.hardware import inspect_hardware
 
 
 def distribution(values):
@@ -70,6 +71,7 @@ def benchmark(repeats=20, concurrency=3):
         logger.removeHandler(capture)
         logger.setLevel(old_level)
     return {'python': platform.python_version(), 'platform': platform.platform(),
+            'hardware': inspect_hardware(probe_accelerators=True),
             'implementation_fingerprint': implementation_fingerprint(),
             'repeats': repeats, 'client_concurrency': concurrency,
             'server_worker_limit': 1, 'app_startup_ms': startup_ms,

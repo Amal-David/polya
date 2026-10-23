@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import tracemalloc
+from copy import deepcopy
 
 import pytest
 
@@ -25,6 +26,21 @@ def test_percentiles_use_real_samples_with_defined_small_sample_behavior():
     assert benchmark.summarize([7.])['p95_ms'] == 7.
     with pytest.raises(ValueError, match='sample'):
         benchmark.summarize([])
+
+
+@pytest.mark.parametrize('operations', [[], ['not.a.fixture']])
+def test_workload_selection_rejects_before_measurement(operations, monkeypatch):
+    monkeypatch.setattr(benchmark, 'measure', lambda *_: pytest.fail('invalid selection executed'))
+    with pytest.raises(ValueError, match='declared benchmark workload'):
+        benchmark.benchmark(operation_ids=operations)
+
+
+def test_cli_rejects_ambiguous_baseline_before_measurement(tmp_path, monkeypatch):
+    path = tmp_path / 'baseline.json'
+    path.write_text('{"repeats":1,"repeats":2}')
+    monkeypatch.setattr(benchmark, 'benchmark', lambda *_: pytest.fail('invalid baseline executed'))
+    with pytest.raises(ValueError, match='Duplicate JSON'):
+        benchmark.main(['--baseline', str(path)])
 
 
 @pytest.mark.parametrize(('repeats', 'cold_repeats'), [(0, 1), (21, 1), (1, 0), (1, 6), (True, 1)])
@@ -95,3 +111,30 @@ def test_transport_benchmark_leaves_an_existing_tracer_untouched():
     finally:
         if started_here:
             tracemalloc.stop()
+
+
+def test_comparison_uses_raw_samples_and_rejects_mismatched_experiments():
+    before = {key: 'same' for key in ('benchmark_source_sha256', 'python', 'platform',
+                                    'dependencies', 'execution_mode', 'hardware', 'capabilities')}
+    before.update(repeats=3, cold_repeats=1, workloads=[{
+        'operation_id': 'grid.read', 'inputs_sha256': 'a' * 64, 'backend': None,
+        'public_api': {'samples_ms': [8., 10., 12.], 'median_ms': -1},
+        'kernel_only': {'samples_ms': [4., 5., 6.]},
+    }])
+    after = deepcopy(before)
+    after['workloads'][0]['public_api']['samples_ms'] = [4., 5., 6.]
+    row = benchmark.compare_reports(before, after)['workloads'][0]
+    assert row['public_api']['observed_median_speedup'] == 2.
+    assert row['kernel_only']['observed_median_speedup'] == 1.
+    for field in ('python', 'hardware', 'benchmark_source_sha256'):
+        changed = deepcopy(after); changed[field] = 'different'
+        with pytest.raises(ValueError, match='matching'):
+            benchmark.compare_reports(before, changed)
+    for field in ('inputs_sha256', 'backend'):
+        changed = deepcopy(after); changed['workloads'][0][field] = 'different'
+        with pytest.raises(ValueError, match='matching'):
+            benchmark.compare_reports(before, changed)
+    for samples in ([1.], [1., 2., float('nan')], [1., 0., 2.], [1., True, 2.]):
+        changed = deepcopy(after); changed['workloads'][0]['public_api']['samples_ms'] = samples
+        with pytest.raises(ValueError, match='timing samples'):
+            benchmark.compare_reports(before, changed)
