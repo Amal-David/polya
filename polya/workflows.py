@@ -348,8 +348,7 @@ class Continuation:
             raise ValueError('indexed calibration aggregate status is inconsistent')
         return True
 
-    def _remote_event(self, event_id: str) -> tuple[dict, dict, dict]:
-        event = next((event for event in self.ledger.snapshot()['events'] if event['id'] == event_id), None)
+    def _validate_remote_event(self, event: dict | None) -> tuple[dict, dict, dict]:
         if (event is None or event['payload'].get('mode') != 'remote' or
                 event['payload'].get('continuation_schema') != 1):
             raise ValueError('expected a recorded remote continuation event')
@@ -366,7 +365,8 @@ class Continuation:
 
     def replay_remote_page(self, event_id: str) -> dict:
         """Run internally, preserving a separate replay state and implementation limit."""
-        event, inputs, remote = self._remote_event(event_id)
+        event = next((event for event in self.ledger.snapshot()['events'] if event['id'] == event_id), None)
+        event, inputs, remote = self._validate_remote_event(event)
         if event['review_status'] != 'RECORDED':
             raise ValueError('remote evidence is retracted or requires review')
         limits = {name: inputs[name] for name in ('max_trials', 'max_matches', 'max_work', 'timeout_ms')}
@@ -411,7 +411,7 @@ class Continuation:
             if payload.get('continuation_schema') != 1:
                 continue
             if payload.get('mode') == 'remote' and payload.get('ticket_ref') == ticket_ref:
-                self._remote_event(event['id'])
+                self._validate_remote_event(event)
                 remote_ids.add(event['id'])
                 remote_pages.append({'event_id': event['id'], 'review_status': event['review_status'],
                     'start': payload['page']['start'], 'stop': payload['page']['stop'],
