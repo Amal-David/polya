@@ -79,6 +79,23 @@ class PrimitiveTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             run("grid.read", {"text": "abc\n", "rows": 1, "columns": 3, "order": "row"})
 
+    def test_grid_matches_independent_tagged_cell_transposition(self):
+        for rows, columns, order, reverse in itertools.product(
+                range(1, 8), range(1, 8), ('row', 'column', 'row_snake', 'column_snake'), (False, True)):
+            original = ('Aé雪🙂e\u0301 Z' * 7)[:rows * columns]
+            cells = [[(original[r * columns + c], r * columns + c) for c in range(columns)]
+                     for r in range(rows)]
+            groups = list(zip(*cells)) if order.startswith('column') else cells
+            expected = [cell for i, group in enumerate(groups)
+                        for cell in (group[::-1] if order.endswith('snake') and i % 2 else group)]
+            if reverse:
+                expected.reverse()
+            result = run('grid.read', {'text': original, 'rows': rows, 'columns': columns,
+                                       'order': order, 'reverse': reverse})['result']
+            with self.subTest(rows=rows, columns=columns, order=order, reverse=reverse):
+                self.assertEqual(result['text'], ''.join(char for char, _ in expected))
+                self.assertEqual(result['source_offsets'], [index for _, index in expected])
+
     def test_profile_does_not_normalize(self):
         result = run("text.profile", {"text": "Aa a\n"})["result"]
         self.assertEqual(result["counts"], {"A": 1, "a": 2, " ": 1, "\n": 1})

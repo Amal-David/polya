@@ -39,8 +39,9 @@ def execution_mode() -> dict:
     }
 
 
-def inspect_runtime() -> dict:
+def inspect_runtime(*, probe_accelerators: bool = False) -> dict:
     """Report this interpreter's capabilities, not third-party certification."""
+    from .hardware import inspect_hardware
     result = {
         "python": platform.python_version(),
         "implementation": platform.python_implementation(),
@@ -52,6 +53,7 @@ def inspect_runtime() -> dict:
         "lazy_imports_supported": hasattr(sys, "get_lazy_imports"),
         "profiling_package": importlib.util.find_spec("profiling") is not None,
         "thread_policy": "Independent calls only; do not share mutable models, solver contexts, sessions or learners.",
+        "hardware": inspect_hardware(probe_accelerators=probe_accelerators),
         "scope": "Observed runtime features. Availability is not a speedup or integration certificate.",
     }
     result.update(execution_mode())

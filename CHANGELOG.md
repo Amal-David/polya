@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — hardware observations and grid performance
+
+- Add CPU/affinity observations and opt-in Apple/NVIDIA device-name probes to
+  `polya doctor`; unknown inventory is distinct from GPU execution support.
+- Bind operation benchmarks to fixture, harness, dependency and hardware metadata;
+  add focused workloads and matched comparisons recomputed from raw samples.
+- Build column-snake grid output with Unicode slices and preserve exact offsets,
+  reverse behavior, validation and receipts, including single-row grids.
+
 ## Unreleased — inspected models and reliable agent workflows
 
 - Add `symbolic.inspect` with field diagnostics, bounded-domain examples, explicit
