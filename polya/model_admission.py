@@ -20,6 +20,10 @@ from .model import LIMIT, PuzzleModel, op
 RAW_INTEGER_BITS = 256
 NORMALIZATION_INTEGER_BITS = 1024
 MAX_DIAGNOSTICS = 64
+# An expression edge includes both an AST object and its JSON args list.
+# Leave room for all 32 admitted edges plus the model/rule and DFA envelopes;
+# _guard_expressions still enforces the unchanged 32-level AST contract.
+RAW_CONTAINER_DEPTH = 80
 
 
 class InspectInput(StrictModel):
@@ -121,7 +125,7 @@ def _guard_raw(model):
     while stack:
         value, path, depth = stack.pop()
         seen += 1
-        if depth > 64 or seen > 100_000:
+        if depth > RAW_CONTAINER_DEPTH or seen > 100_000:
             raise _NormalizationLimit('raw model nesting/node budget exceeded', path)
         if type(value) is int and value.bit_length() > RAW_INTEGER_BITS:
             raise _NormalizationLimit('raw integer exceeds inspection normalization limit', path)

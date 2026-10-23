@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tracemalloc
 
 import pytest
 
@@ -45,6 +46,52 @@ def test_cold_worker_is_a_fresh_verified_public_call():
 
 def test_memory_measurement_does_not_relabel_process_rss_as_operation_allocation():
     data = benchmark.measure_memory(lambda: list(range(1000)))
-    assert data['python_tracemalloc_peak_bytes'] > 0
-    assert 'cumulative process' in data['scope']
-    assert 'separate call' in data['scope']
+    if tracemalloc.is_tracing():
+        assert data['python_tracemalloc_peak_bytes'] is None
+        assert 'left untouched' in data['reason']
+    else:
+        assert data['python_tracemalloc_peak_bytes'] > 0
+        assert 'cumulative process' in data['scope']
+        assert 'separate call' in data['scope']
+
+
+def test_memory_measurement_preserves_an_existing_tracer():
+    started_here = not tracemalloc.is_tracing()
+    if started_here:
+        tracemalloc.start()
+    try:
+        data = benchmark.measure_memory(lambda: pytest.fail('unisolated memory sample'))
+        assert tracemalloc.is_tracing()
+        assert data['python_tracemalloc_peak_bytes'] is None
+        assert 'left untouched' in data['reason']
+    finally:
+        if started_here:
+            tracemalloc.stop()
+
+
+def test_memory_measurement_cleans_up_after_a_failing_call():
+    if tracemalloc.is_tracing():
+        pytest.skip('requires ownership of a fresh allocation tracer')
+    def fail():
+        raise RuntimeError('synthetic measurement failure')
+    with pytest.raises(RuntimeError, match='synthetic measurement failure'):
+        benchmark.measure_memory(fail)
+    assert not tracemalloc.is_tracing()
+
+
+def test_transport_benchmark_leaves_an_existing_tracer_untouched():
+    if importlib.util.find_spec('mcp') is None:
+        pytest.skip('optional MCP transport is not installed')
+    from scripts.benchmark_transport import benchmark as transport_benchmark
+    started_here = not tracemalloc.is_tracing()
+    if started_here:
+        tracemalloc.start()
+    try:
+        data = transport_benchmark(repeats=1, concurrency=1)
+        assert tracemalloc.is_tracing()
+        assert data['peak_python_allocations_bytes_one_call'] is None
+        assert 'left untouched' in data['memory']['reason']
+        assert data['warm_http']['count'] == 1
+    finally:
+        if started_here:
+            tracemalloc.stop()

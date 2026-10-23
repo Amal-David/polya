@@ -8,7 +8,7 @@ import random
 import pytest
 
 from polya.model import LIMIT, PuzzleModel, op
-from polya.model_admission import inspect_model
+from polya.model_admission import RAW_CONTAINER_DEPTH, inspect_model
 
 
 def model(expression, variables=None):
@@ -163,6 +163,51 @@ def test_unsigned_bitvector_semantics_are_never_integer_reduced():
     result = inspect_model(request, normalize_coefficients=True)
     assert result['valid'] and not result['normalization_applied']
     assert result['normalized_model']['constraints'][0]['expr'] == request['constraints'][0]['expr']
+
+
+@pytest.mark.parametrize('depth', [30, 31, 32, 33])
+@pytest.mark.parametrize('normalize_coefficients', [False, True])
+def test_inspection_and_execution_agree_at_expression_depth_boundary(depth, normalize_coefficients):
+    expression = True
+    for _ in range(depth):
+        expression = op('not', expression)
+    request = model(expression)
+    if depth <= 32:
+        PuzzleModel.model_validate(request)
+    else:
+        with pytest.raises(ValueError, match='expression nesting/node budget exceeded'):
+            PuzzleModel.model_validate(request)
+    result = inspect_model(request, normalize_coefficients=normalize_coefficients)
+    assert result['valid'] is (depth <= 32)
+    if depth <= 32:
+        assert result['normalized_model']['constraints'][0]['expr'] == expression
+    else:
+        assert result['normalized_model'] is None
+        assert result['diagnostics'][0]['code'] == 'inspection_resource_limit'
+        assert result['diagnostics'][0]['message'] == 'expression nesting/node budget exceeded'
+
+
+@pytest.mark.parametrize('normalize_coefficients', [False, True])
+def test_raw_guard_allows_dfa_envelope_beneath_maximum_expression_depth(normalize_coefficients):
+    from polya.automata import from_runs
+
+    expression = {'op': 'automaton', 'vars': [], 'machine': from_runs([])['machine']}
+    for _ in range(32):
+        expression = op('not', expression)
+    request = model(expression)
+    PuzzleModel.model_validate(request)
+    result = inspect_model(request, normalize_coefficients=normalize_coefficients)
+    assert result['valid'] and result['normalized_model']['constraints'][0]['expr'] == expression
+
+
+def test_raw_container_guard_still_bounds_non_expression_data():
+    nested = {}
+    for _ in range(RAW_CONTAINER_DEPTH + 1):
+        nested = {'child': nested}
+    result = inspect_model({'variables': {}, 'unexpected': nested})
+    assert not result['valid'] and result['normalized_model'] is None
+    assert result['diagnostics'][0]['code'] == 'inspection_resource_limit'
+    assert result['diagnostics'][0]['message'] == 'raw model nesting/node budget exceeded'
 
 
 def test_raw_intermediate_ast_and_json_budgets_reject_before_reduction():

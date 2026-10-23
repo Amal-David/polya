@@ -236,6 +236,7 @@ class Continuation:
         deadline = time.monotonic() + timeout_ms / 1000
         rows = []
         execution_events = []
+        records = []
         interrupted = False
         for control in packet['case']['calibrations']:
             if time.monotonic() >= deadline:
@@ -247,6 +248,8 @@ class Continuation:
                 raw = self.workspace.get('sha256:' + artifact['sha256'])
                 inputs[field] = raw.hex() if artifact['encoding'] == 'hex' else raw.decode('utf-8')
             operation_id = catalog.canonical_operation_id(control['operation_id'])
+            record = {name: control[name] for name in ('id', 'output_field', 'expected_value_sha256')}
+            record.update(operation_id=operation_id, inputs=deepcopy(inputs), envelope=None)
             try:
                 if runner is None:
                     envelope = self.ledger.run(operation_id, inputs, dependencies=[preparation])
@@ -258,15 +261,18 @@ class Continuation:
             except (ValueError, RuntimeError, ImportError, KeyError) as exc:
                 rows.append({'id': control['id'], 'status': 'EXECUTION_ERROR',
                              'error_type': type(exc).__name__})
+                records.append({**record, 'status': 'EXECUTION_ERROR'})
                 continue
             if time.monotonic() >= deadline:
                 interrupted = True
                 rows.append({'id': control['id'], 'status': 'LATE_RESULT',
                              'receipt': envelope['receipt']})
+                records.append({**record, 'status': 'LATE_RESULT', 'envelope': deepcopy(envelope)})
                 break
-            rows.append({'id': control['id'], 'status': 'REPLAY_MATCH' if
-                         observed == control['expected_value_sha256'] else 'REPLAY_MISMATCH',
+            control_status = 'REPLAY_MATCH' if observed == control['expected_value_sha256'] else 'REPLAY_MISMATCH'
+            rows.append({'id': control['id'], 'status': control_status,
                          'observed_value_sha256': observed, 'receipt': envelope['receipt']})
+            records.append({**record, 'status': control_status, 'envelope': deepcopy(envelope)})
         complete = not interrupted and len(rows) == len(packet['case']['calibrations'])
         status = ('PARTIAL' if not complete else 'NO_CALIBRATIONS' if not rows else
                   'CALIBRATED' if all(row['status'] == 'REPLAY_MATCH' for row in rows) else 'CALIBRATION_FAILED')
@@ -275,9 +281,72 @@ class Continuation:
                   'independent_reproduction': False,
                   'scope': 'Known caller-declared controls only; a match does not verify the interpretation or an unknown result. Callback and operation deadlines are cooperative.'}
         report_ref = self.workspace.put(encoded(report))
-        review_id = self.ledger.append('review', {'continuation_schema': 1, 'mode': 'controls',
-            'ticket_ref': ticket_ref, 'report_ref': report_ref}, dependencies=[preparation, *execution_events])
+        if runner is None:
+            review_id = self.ledger._record_calibration_review(
+                ticket_ref=ticket_ref, manifest_sha256=packet['manifest_sha256'],
+                controls_sha256=_sha(packet['case']['calibrations']), report_ref=report_ref,
+                preparation_id=preparation, declared_controls=packet['case']['calibrations'], records=records)
+        else:
+            review_id = self.ledger.append('review', {'continuation_schema': 1, 'mode': 'controls',
+                'ticket_ref': ticket_ref, 'report_ref': report_ref}, dependencies=[preparation])
         return {**report, 'review_event_id': review_id, 'execution_event_ids': execution_events}
+
+    def _qualifying_controls(self, packet: dict, indexed: dict, report: dict) -> bool:
+        """Match an internally indexed report to this ticket's exact control inputs."""
+        payload = indexed['payload']
+        declared = packet['case']['calibrations']
+        if (payload['manifest_sha256'] != packet['manifest_sha256'] or
+                payload['controls_sha256'] != _sha(declared) or
+                payload['control_count'] != len(declared) or
+                report.get('execution_origin') != 'local' or
+                type(report.get('complete')) is not bool or
+                type(report.get('controls')) is not list or
+                len(report['controls']) != len(payload['records'])):
+            raise ValueError('indexed calibration report does not match the ticket controls')
+        complete = report['complete']
+        if complete and len(payload['records']) != len(declared):
+            raise ValueError('complete calibration does not cover every declared control')
+        artifacts = {artifact['id']: artifact for artifact in packet['case']['artifacts']}
+        for control, row, recorded in zip(declared, report['controls'], payload['records']):
+            operation_id = catalog.canonical_operation_id(control['operation_id'])
+            if (any(recorded[key] != control[key] for key in ('id', 'output_field', 'expected_value_sha256')) or
+                    recorded['operation_id'] != operation_id or row.get('id') != control['id'] or
+                    row.get('status') != recorded['status']):
+                raise ValueError('indexed calibration row does not match its declared control')
+            if recorded['execution_event_id'] is None:
+                if recorded['status'] != 'EXECUTION_ERROR' or 'receipt' in row:
+                    raise ValueError('calibration error row must not claim an execution receipt')
+                continue
+            inputs = deepcopy(control['inputs'])
+            for field, artifact_id in control['artifact_bindings'].items():
+                artifact = artifacts[artifact_id]
+                try:
+                    raw = self.workspace.get('sha256:' + artifact['sha256'])
+                except KeyError:
+                    return False
+                inputs[field] = raw.hex() if artifact['encoding'] == 'hex' else raw.decode('utf-8')
+            operation = catalog.REGISTRY[operation_id]
+            normalized = operation.request.model_validate(inputs).model_dump(mode='json')
+            receipt = row.get('receipt')
+            if (recorded['inputs_sha256'] != _sha(normalized) or type(receipt) is not dict or
+                    _sha(receipt) != recorded['receipt_sha256'] or
+                    receipt.get('result_sha256') != recorded['result_sha256'] or
+                    receipt.get('operation_version') != recorded['operation_version']):
+                raise ValueError('calibration request/output receipt does not match actual execution')
+            expected_status = ('REPLAY_MATCH' if recorded['observed_value_sha256'] ==
+                               recorded['expected_value_sha256'] else 'REPLAY_MISMATCH')
+            if recorded['status'] == 'LATE_RESULT':
+                if complete:
+                    raise ValueError('late calibration result cannot be complete')
+            elif (recorded['status'] != expected_status or
+                  row.get('observed_value_sha256') != recorded['observed_value_sha256']):
+                raise ValueError('calibration observed hash/status linkage mismatch')
+        expected = ('PARTIAL' if not complete else 'NO_CALIBRATIONS' if not declared else
+                    'CALIBRATED' if all(row['status'] == 'REPLAY_MATCH' for row in payload['records'])
+                    else 'CALIBRATION_FAILED')
+        if report.get('status') != expected:
+            raise ValueError('indexed calibration aggregate status is inconsistent')
+        return True
 
     def _remote_event(self, event_id: str) -> tuple[dict, dict, dict]:
         event = next((event for event in self.ledger.snapshot()['events'] if event['id'] == event_id), None)
@@ -319,8 +388,23 @@ class Continuation:
 
     def handoff(self, ticket_ref: str) -> dict:
         """Read actual local coverage and retain remote claims, gaps and retractions."""
+        owned_transaction = not self.ledger.connection.in_transaction
+        try:
+            if owned_transaction:
+                self.ledger.connection.execute('BEGIN')
+            result = self._handoff(ticket_ref)
+            if owned_transaction:
+                self.ledger.connection.commit()
+            return result
+        except Exception:
+            if owned_transaction:
+                self.ledger.connection.rollback()
+            raise
+
+    def _handoff(self, ticket_ref: str) -> dict:
         packet, inspection, compatible = self._load(ticket_ref, require_ready=False)
         coverage = self.ledger.plan_coverage(packet['plan_id'])
+        indexed_controls = self.ledger.calibration_reviews()
         remote_pages, replays, controls, remote_ids = [], [], [], set()
         for event in self.ledger.snapshot()['events']:
             payload = event['payload']
@@ -335,8 +419,12 @@ class Continuation:
             elif payload.get('mode') == 'replay' and payload.get('remote_event_id') in remote_ids:
                 replays.append({'event_id': event['id'], 'review_status': event['review_status'], **payload})
             elif payload.get('mode') == 'controls' and payload.get('ticket_ref') == ticket_ref:
+                report = loads(self.workspace.get(payload['report_ref']))
+                indexed = indexed_controls.get(event['id'])
+                qualifying = indexed is not None and self._qualifying_controls(packet, indexed, report)
                 controls.append({'event_id': event['id'], 'review_status': event['review_status'],
-                                 'report': loads(self.workspace.get(payload['report_ref']))})
+                                 'internally_indexed': indexed is not None,
+                                 'qualifying_local_record': qualifying, 'report': report})
         try:
             self._preparation(ticket_ref)
         except ValueError:
@@ -344,11 +432,11 @@ class Continuation:
         else:
             prepared = True
         active_controls = [row['report'] for row in controls if row['review_status'] == 'RECORDED'
-                           and row['report']['execution_origin'] == 'local']
+                           and row['qualifying_local_record']]
         calibration_state = (active_controls[-1]['status'] if active_controls else
                              'NOT_RUN' if packet['case']['calibrations'] else 'NO_CALIBRATIONS')
         unresolved_controls = [row['event_id'] for row in controls if row['review_status'] == 'RECORDED'
-                               and row['report']['execution_origin'] == 'local'
+                               and row['qualifying_local_record']
                                and row['report']['status'] not in ('CALIBRATED', 'NO_CALIBRATIONS')]
         unresolved_replay = any(row['review_status'] == 'RECORDED' and row['status'] != 'MATCH'
                                 for row in replays)

@@ -42,6 +42,15 @@ def prepare(workflow, **kwargs):
     return workflow.prepare(*fixture(**kwargs))
 
 
+def control_fixture():
+    case, plan, bindings = fixture()
+    case['calibrations'] = [{'id': 'control', 'operation_id': 'text.encode',
+        'inputs': {'codec': 'ascii'}, 'artifact_bindings': {'text': 'evidence'},
+        'output_field': 'hex', 'expected_value_sha256': hashlib.sha256(encoded(b'01000001'.hex())).hexdigest(),
+        'source': 'synthetic known control'}]
+    return case, plan, bindings
+
+
 def test_stored_sources_run_through_actual_local_entrypoint_and_restart(tmp_path):
     case, plan, bindings = fixture()
     with Continuation(tmp_path) as workflow:
@@ -428,6 +437,125 @@ def test_retracting_control_execution_invalidates_its_dependent_report(tmp_path)
         report = workflow.handoff(ticket['ticket_ref'])
         assert report['calibrations'][0]['review_status'] == 'REVIEW_REQUIRED'
         assert report['calibration_state'] == 'NOT_RUN' and not report['completed_negative']
+
+
+@pytest.mark.parametrize('claim_status', ['CALIBRATED', 'NO_CALIBRATIONS', 'CALIBRATION_FAILED'])
+def test_generic_control_report_cannot_promote_not_run_even_with_real_unrelated_execution(tmp_path, claim_status):
+    with Continuation(tmp_path) as workflow:
+        ticket = workflow.prepare(*control_fixture())
+        workflow.run_page(ticket['ticket_ref'])
+        unrelated = workflow.ledger.run('text.encode', {'text': 'unrelated', 'codec': 'ascii'},
+                                       dependencies=[ticket['event_id']])
+        report = {'status': claim_status, 'complete': True, 'execution_origin': 'local',
+                  'controls': [], 'independent_reproduction': False}
+        report_ref = workflow.workspace.put(encoded(report))
+        fake = workflow.ledger.append('review', {'continuation_schema': 1, 'mode': 'controls',
+            'calibration_schema': 1, 'ticket_ref': ticket['ticket_ref'], 'report_ref': report_ref,
+            'execution_event_ids': [unrelated['ledger_event_id']]},
+            dependencies=[ticket['event_id'], unrelated['ledger_event_id']])
+        handoff = workflow.handoff(ticket['ticket_ref'])
+        assert handoff['calibration_state'] == 'NOT_RUN' and not handoff['completed_negative']
+        claim, = handoff['calibrations']
+        assert claim['event_id'] == fake and not claim['internally_indexed']
+        assert not claim['qualifying_local_record'] and claim['report']['status'] == claim_status
+        workflow.replay_controls(ticket['ticket_ref'])
+        assert workflow.handoff(ticket['ticket_ref'])['completed_negative']
+
+
+def test_copy_of_retracted_genuine_report_is_still_only_a_claim(tmp_path):
+    with Continuation(tmp_path) as workflow:
+        ticket = workflow.prepare(*control_fixture())
+        genuine = workflow.replay_controls(ticket['ticket_ref'])
+        workflow.run_page(ticket['ticket_ref'])
+        original = workflow.ledger.calibration_reviews()[genuine['review_event_id']]
+        workflow.ledger.append('retraction', {'reason': 'synthetic review withdrawal'},
+                               retracts=genuine['review_event_id'])
+        copied = workflow.ledger.append('review', deepcopy(original['payload']),
+                                        dependencies=original['dependencies'])
+        handoff = workflow.handoff(ticket['ticket_ref'])
+        assert not handoff['completed_negative'] and handoff['calibration_state'] == 'NOT_RUN'
+        copy = next(row for row in handoff['calibrations'] if row['event_id'] == copied)
+        assert not copy['internally_indexed'] and not copy['qualifying_local_record']
+
+
+def test_internal_calibration_recorder_rejects_unrelated_request_and_wrong_control_rows(tmp_path):
+    case, plan, bindings = control_fixture()
+    with Continuation(tmp_path) as workflow:
+        ticket = workflow.prepare(case, plan, bindings)
+        packet = json.loads(workflow.workspace.get(ticket['ticket_ref']))
+        unrelated = workflow.ledger.run('text.encode', {'text': 'unrelated', 'codec': 'ascii'},
+                                       dependencies=[ticket['event_id']])
+        report_ref = workflow.workspace.put(encoded({'status': 'CALIBRATED'}))
+        record = {name: case['calibrations'][0][name] for name in
+                  ('id', 'operation_id', 'output_field', 'expected_value_sha256')}
+        record.update(status='REPLAY_MATCH', inputs={'text': '01000001', 'codec': 'ascii'}, envelope=unrelated)
+        kwargs = {'ticket_ref': ticket['ticket_ref'], 'manifest_sha256': packet['manifest_sha256'],
+                  'controls_sha256': hashlib.sha256(encoded(packet['case']['calibrations'])).hexdigest(),
+                  'report_ref': report_ref, 'preparation_id': ticket['event_id'],
+                  'declared_controls': packet['case']['calibrations']}
+        with pytest.raises(ValueError, match='executed request/result'):
+            workflow.ledger._record_calibration_review(**kwargs, records=[record])
+        record['id'] = 'wrong-control'
+        with pytest.raises(ValueError, match='declared control order'):
+            workflow.ledger._record_calibration_review(**kwargs, records=[record])
+        assert workflow.ledger.calibration_reviews() == {}
+
+
+def test_calibration_index_hash_mismatch_fails_closed(tmp_path):
+    with Continuation(tmp_path) as workflow:
+        ticket = workflow.prepare(*control_fixture())
+        report = workflow.replay_controls(ticket['ticket_ref'])
+        workflow.ledger.connection.execute('UPDATE calibration_reviews SET payload_sha256=? WHERE event_id=?',
+                                           ('a' * 64, report['review_event_id']))
+        workflow.ledger.connection.commit()
+        with pytest.raises(ValueError, match='calibration review integrity'):
+            workflow.handoff(ticket['ticket_ref'])
+
+
+def test_report_cannot_omit_or_change_internally_recorded_control_rows(tmp_path):
+    with Continuation(tmp_path) as workflow:
+        ticket = workflow.prepare(*control_fixture())
+        report = workflow.replay_controls(ticket['ticket_ref'])
+        packet = json.loads(workflow.workspace.get(ticket['ticket_ref']))
+        indexed = workflow.ledger.calibration_reviews()[report['review_event_id']]
+        stored = json.loads(workflow.workspace.get(indexed['payload']['report_ref']))
+        missing = {**stored, 'controls': []}
+        with pytest.raises(ValueError, match='ticket controls'):
+            workflow._qualifying_controls(packet, indexed, missing)
+        changed = deepcopy(stored)
+        changed['controls'][0]['observed_value_sha256'] = 'a' * 64
+        with pytest.raises(ValueError, match='observed hash/status'):
+            workflow._qualifying_controls(packet, indexed, changed)
+
+
+def test_calibration_review_and_internal_index_commit_atomically(tmp_path):
+    with Continuation(tmp_path) as workflow:
+        ticket = workflow.prepare(*control_fixture())
+        workflow.ledger.connection.execute("CREATE TRIGGER stop_calibration_index BEFORE INSERT ON calibration_reviews BEGIN SELECT RAISE(ABORT,'synthetic calibration index failure'); END")
+        workflow.ledger.connection.commit()
+        import sqlite3
+        with pytest.raises(sqlite3.IntegrityError, match='synthetic calibration index failure'):
+            workflow.replay_controls(ticket['ticket_ref'])
+        assert workflow.ledger.calibration_reviews() == {}
+        handoff = workflow.handoff(ticket['ticket_ref'])
+        assert handoff['calibration_state'] == 'NOT_RUN' and handoff['calibrations'] == []
+
+
+def test_missing_source_after_genuine_calibration_remains_inconclusive(tmp_path):
+    case, plan, bindings = control_fixture()
+    with Continuation(tmp_path) as workflow:
+        ticket = workflow.prepare(case, plan, bindings)
+        assert workflow.replay_controls(ticket['ticket_ref'])['status'] == 'CALIBRATED'
+        workflow.run_page(ticket['ticket_ref'])
+        assert workflow.handoff(ticket['ticket_ref'])['completed_negative']
+        workflow.workspace.connection.execute('DELETE FROM artifacts WHERE sha=?',
+                                              (case['artifacts'][0]['sha256'],))
+        workflow.workspace.connection.commit()
+        handoff = workflow.handoff(ticket['ticket_ref'])
+        assert handoff['local_coverage']['complete']
+        assert not handoff['inspection']['ready'] and not handoff['inspection']['bound_sources_ready']
+        assert handoff['calibration_state'] == 'NOT_RUN'
+        assert handoff['conclusion'] == 'INCONCLUSIVE' and not handoff['completed_negative']
 
 
 @pytest.mark.parametrize('mutation', ['inputs', 'result', 'fingerprint', 'version'])

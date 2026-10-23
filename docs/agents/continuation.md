@@ -92,6 +92,18 @@ cooperative deadline does not terminate an uncooperative callback or kernel; lat
 results are not accepted as completed calibration. Control success validates only
 the supplied known control, not a source interpretation or unknown answer.
 
+Local replay creates a separate internally indexed calibration review in the
+existing Ledger. The index binds the ticket and manifest, declared controls,
+report content handle, exact normalized operation/request hashes, observed output
+hashes, statuses, receipts and underlying execution event IDs. Handoff rechecks
+those links and the complete dependency chain in the same ledger snapshot as plan
+coverage. An ordinary `Ledger.append('review', ...)` entry remains a caller claim,
+even if it says `execution_origin: local`, names genuine execution IDs or copies a
+previous report. Such entries remain visible with `qualifying_local_record: false`
+and cannot change `NOT_RUN` into accepted calibration. Remote reports are also
+documentary. This internal index detects inconsistent edits; it is not source
+authentication or protection against someone who can rewrite the database.
+
 ## Preserve counts, missing evidence and invalidation
 
 Handoffs include available/missing artifact states, local coverage, remote claims,

@@ -10,10 +10,10 @@ import platform
 import statistics
 import sys
 import time
-import tracemalloc
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from scripts.benchmark_operations import measure_memory
 
 
 def distribution(values):
@@ -65,10 +65,7 @@ def benchmark(repeats=20, concurrency=3):
             warm = [call() for _ in range(repeats)]
             with ThreadPoolExecutor(max_workers=concurrency) as pool:
                 contended = list(pool.map(call, range(repeats)))
-            tracemalloc.start()
-            call()
-            _, peak = tracemalloc.get_traced_memory()
-            tracemalloc.stop()
+            memory = measure_memory(call)
     finally:
         logger.removeHandler(capture)
         logger.setLevel(old_level)
@@ -81,7 +78,8 @@ def benchmark(repeats=20, concurrency=3):
             'server_phases': {name: distribution([event[name] for event in events
                 if event.get(name) is not None]) for name in
                 ('elapsed_ms', 'queue_ms', 'execution_ms', 'serialization_ms')},
-            'peak_python_allocations_bytes_one_call': peak,
+            'peak_python_allocations_bytes_one_call': memory['python_tracemalloc_peak_bytes'],
+            'memory': memory,
             'scope': 'Local in-process ASGI HTTP encoding/SDK/worker/queue timings. No TCP/TLS, production traffic, model reasoning, or service-wide speedup. Phase distributions include first/warm/concurrent/memory samples; do not sum percentiles. One worker and existing admission limits preserved.'}
 
 
