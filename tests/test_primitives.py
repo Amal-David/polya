@@ -18,9 +18,8 @@ class PrimitiveTests(unittest.TestCase):
     def test_operation_ids_are_family_dot_snake_case(self):
         for operation_id in REGISTRY:
             self.assertRegex(operation_id, r"^[a-z][a-z0-9]*\.[a-z][a-z0-9_]*$")
-        # Existing inventory plus the one bounded educational retrieval operation.
-        self.assertIn('method.retrieve', REGISTRY)
-        self.assertEqual(len(REGISTRY), 54)
+        self.assertTrue({'method.retrieve', 'symbolic.inspect'} <= REGISTRY.keys())
+        self.assertEqual(len(REGISTRY), 55)
         self.assertTrue({"council.prepare", "council.prioritize", "casepack.inspect", "casepack.replay", "experiment.rank_tests", "cipher.periodic_search", "utility.compare_runs"} <= set(REGISTRY))
         self.assertTrue({'mechanism.plan_inspect', 'text.encode', 'bytes.decode_text'} <= REGISTRY.keys())
 
@@ -79,6 +78,23 @@ class PrimitiveTests(unittest.TestCase):
     def test_grid_never_pads_or_trims(self):
         with self.assertRaises(ValueError):
             run("grid.read", {"text": "abc\n", "rows": 1, "columns": 3, "order": "row"})
+
+    def test_grid_matches_independent_tagged_cell_transposition(self):
+        for rows, columns, order, reverse in itertools.product(
+                range(1, 8), range(1, 8), ('row', 'column', 'row_snake', 'column_snake'), (False, True)):
+            original = ('Aé雪🙂e\u0301 Z' * 7)[:rows * columns]
+            cells = [[(original[r * columns + c], r * columns + c) for c in range(columns)]
+                     for r in range(rows)]
+            groups = list(zip(*cells)) if order.startswith('column') else cells
+            expected = [cell for i, group in enumerate(groups)
+                        for cell in (group[::-1] if order.endswith('snake') and i % 2 else group)]
+            if reverse:
+                expected.reverse()
+            result = run('grid.read', {'text': original, 'rows': rows, 'columns': columns,
+                                       'order': order, 'reverse': reverse})['result']
+            with self.subTest(rows=rows, columns=columns, order=order, reverse=reverse):
+                self.assertEqual(result['text'], ''.join(char for char, _ in expected))
+                self.assertEqual(result['source_offsets'], [index for _, index in expected])
 
     def test_profile_does_not_normalize(self):
         result = run("text.profile", {"text": "Aa a\n"})["result"]

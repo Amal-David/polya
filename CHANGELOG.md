@@ -13,6 +13,47 @@
 - Include nested implementation and bundled method data in receipt/cache source
   fingerprints. Consolidate source fidelity, proof scope and evaluation lessons.
 
+## Unreleased — hardware observations and grid performance
+
+- Add CPU/affinity observations and opt-in Apple/NVIDIA device-name probes to
+  `polya doctor`; unknown inventory is distinct from GPU execution support.
+- Bind operation benchmarks to fixture, harness, dependency and hardware metadata;
+  add focused workloads and matched comparisons recomputed from raw samples.
+- Build column-snake grid output with Unicode slices and preserve exact offsets,
+  reverse behavior, validation and receipts, including single-row grids.
+
+## Unreleased — inspected models and reliable agent workflows
+
+- Add `symbolic.inspect` with field diagnostics, bounded-domain examples, explicit
+  capability limits and opt-in exact integer-linear coefficient normalization.
+- Version symbolic solve/analyze contracts to 2 and comparison to 3. Preserve valid
+  SAT witnesses while exposing typed late-check operational failures; UNKNOWN and
+  incomplete uniqueness remain explicit.
+- Compose CasePack, Workspace and Ledger into a trusted client continuation helper
+  with exact source/request/version binding, portable evidence, controlled replay,
+  overlap/retraction checks and calibration-conflict gates. Remote claims do not
+  enter the local execution index.
+- Add a content-disjoint synthetic three-arm benchmark protocol and independent
+  scorer, plus cold/warm/memory/phase diagnostics. Actual model trials remain unrun.
+- Add assumption-choice and end-to-end workflow examples, coverage discovery terms
+  and consistent documentation of existing features and scope.
+- Correct backend-recovery provenance invalidation and cache transition handling;
+  reuse admission-checked output encoding for receipt hashing. Retain independent
+  validation, output bounds, cooperative budgets and one HTTP worker.
+- Split HTTP queue/execution/encoding timings and sanitize known pinned-SDK loggers
+  to metadata. This is not a guarantee about platform or future third-party logs.
+
+## Unreleased — comparison failures and service provenance
+
+- Mark `hypotheses.compare` backend failures as MCP execution errors while
+  preserving each case, distinguishing observations and bounded partial outcomes.
+  Version 2 adds typed aggregate status and a failed-case map with recovery guidance.
+- Correlate HTTP tool responses with payload-free execution events using random
+  execution IDs. Report the deployed Git revision in health responses and events.
+  HTTP success and tool success remain distinct from mathematical completeness.
+- Clarify exact request/receipt binding, controls through the actual execution
+  path, and uniqueness conditional on consistent modeling conventions.
+
 ## Unreleased — evidence-first council and investigation utility
 
 - Keep council abstentions incomplete and preserve their reasons in public results.

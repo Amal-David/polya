@@ -23,7 +23,7 @@ affiliation, endorsement or legal clearance.
 | Logic and combinatorics | Assignments, permutations, propagation, uniqueness | Finite tables, symbolic rules, Z3, optional CP-SAT, reference checks |
 | Programs and interaction | State graphs, transition rules, local acceptance | DFA and Mealy simulation, distinguishing inputs, bounded local learning |
 | Cryptographic constructions | Exact serialization, KDF compatibility, verification | Legacy OpenSSL, BIP39 seed KDF, SHA256 and P2PKH targets, equality patterns |
-| External and physical evidence | Versions, editions, observations, missing information | Caller source labels and explicit unacquired-observation results |
+| External and physical evidence | Versions, editions, observations, missing information | Casepack hash/consistency checks, local content handles, retractions, missing evidence and explicit unacquired observations |
 
 The first column is a direction, not a claim. Raw image and audio perception,
 cultural interpretation and external evidence retrieval are out of scope today.
@@ -66,44 +66,40 @@ count, Python version or inner-loop speed. It is: does the same agent, on the sa
 stalled task, produce more independently validated progress at the same budget?
 See [evaluation](../guides/execution.md#evaluation).
 
-In order:
+The [complete agent workflow](../agents/workflow.md) connects implemented pieces:
 
-1. **Failure-driven task bank.** Capture real stalled requests: original
-   artifacts, what is established, what is uncertain, required outputs, baselines
-   with existing tools, and acceptance checks. Keep replay separate from live
-   frontier work. No new operation without a task it unblocks.
-2. **Artifact-to-symbol work.** Lossless channels and bit planes (done for PNG),
-   glyph ambiguity, timestamped stereo and spectral views, source offsets and
-   original-artifact hashes. Vision and audio readings stay hypotheses.
-3. **Mechanism synthesis.** Generate and rank source-grounded programs that select,
-   reorder, map, combine and reduce evidence, using clue evidence, stated
-   assumptions and unused-evidence predictions, then run them against exact oracles.
-   `mechanism.recipe_scan` and `mechanism.plan_scan` run supplied recipes; they do
-   not generate them.
-4. **Specialist cryptanalysis.** Adapt established unknown-key search for classical
-   ciphers instead of rebuilding hill-climbing and language scoring. Colossus,
-   AZDecrypt and CrypTool-style engines are candidates, not dependencies. Check
-   conventions, licensing, output parsing, seeds and negative controls first.
-   English scores do not fit binary, seed or key-bearing layers.
-5. **Semantic deduplication and evidence sensitivity.** Show when recipes yield the
-   same bytes, ignore a clue, or are invariant under the tested rearrangement. Add
-   algebraic simplifications only with equivalence checks. Equivalent work is not
-   corroboration.
-6. **Broader profiles and acceptance adapters.** BIP39 vocabulary, checksum and
-   constrained word order; historical KDF and serialization profiles; book-index
-   extraction; timestamped audio symbols. Pin author artifacts and stage semantics
-   and calibrate format, KDF, checksum and address checks independently. A final
-   address comparator does not say how to derive the candidate.
+| Need | Existing capability | Practical limit |
+| --- | --- | --- |
+| Preserve source evidence | `casepack.inspect`, `casepack.replay`, local `Workspace` | Caller labels are claims; hashes do not authenticate a transcription or recover missing files. |
+| Bound a model before solving | `symbolic.inspect`, explicit domains and backend capabilities | Diagnostics and opt-in exact coefficient normalization do not invent bounds or accept unsupported nonlinear work. |
+| Retain interpretations | `symbolic.analyze`, `hypotheses.compare` | Uniqueness and forced values concern supplied domains, assumptions and answer projection. |
+| Choose an informative next test | `experiment.rank_tests` | Only supplied predicted disagreements earn credit; no observation is acquired. |
+| Account for work and restart | Stable candidate indices, typed plan identities, `Ledger`, request-bound receipts | Generated, unique, attempted and completed work differ; caller-side state must survive the session. |
+| Test utility | `utility.compare_runs`, held-out nonfinancial benchmark harness | Scripted integration fixtures and latency measurements are separate from true model-based evidence. |
 
-Further operations should support streaming transforms, explicit normalization,
-stable enumeration, dependency-aware reuse and separately checked acceptance. A
-shared artifact representation should keep source bytes, coordinates, time
-windows, competing transcriptions and provenance across modalities, and large
-artifacts should use stable handles instead of being re-serialized into agent
-context. Add mature adapters rather than duplicate libraries. Add machine learning
-only where observations give informative, repeatable feedback. Dependency-safe
-symbolic deduction reuse, learned operation selection, MaxSAT and passive automata
-learning remain proposals.
+These implementations leave meaningful work open. The current priorities are to
+measure agent usefulness at equal whole-session budgets, reduce admission/repair
+turns, make continuation reliable and optimize repeated work only after profiling.
+Keep a failure-driven task bank with source versions, uncertain assumptions,
+independent acceptance checks and known controls. A reusable operation should
+unblock a concrete mechanism-level need; another operation or invocation count
+does not by itself establish progress.
+
+Lossless PNG extraction, candidate paging, typed-plan preflight and supplied-recipe
+execution already exist. Raw audio/video extraction, semantic glyph perception,
+source-grounded unrestricted mechanism synthesis and external evidence retrieval
+remain outside the implemented slice. `mechanism.recipe_scan` and
+`mechanism.plan_scan` execute supplied recipes/plans; they do not discover an
+intended mechanism. Existing periodic classical-cipher search supplies bounded
+proposals, without establishing an unknown source's convention or interpretation.
+
+Keep normalization explicit and preserve source bytes, coordinates, transcriptions
+and provenance. Use existing content handles for large artifacts instead of
+reserializing them into each agent context. Dependency-safe symbolic deduction
+reuse, learned operation selection, MaxSAT and passive automata learning remain
+proposals. Any measured optimization must retain witness checks, budgets,
+completeness and receipt semantics. No Rust rewrite or larger hardware is required
+by this workflow.
 
 ## Scope and limits
 

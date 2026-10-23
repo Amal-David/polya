@@ -77,7 +77,9 @@ def _compact(contract):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="polya", description="Discover, inspect and run deterministic puzzle operations.")
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
-    sub.add_parser("doctor", help="Report interpreter features without loading solvers")
+    doctor = sub.add_parser("doctor", help="Report interpreter features without loading solvers")
+    doctor.add_argument("--probe-accelerators", action="store_true",
+                        help="Inspect local Apple/NVIDIA device names; does not enable GPU execution")
     sub.add_parser("mcp", help="Start the local stdio MCP server")
     listing = sub.add_parser("list", help="List every operation grouped by family")
     listing.add_argument("--family", help="Show only one family, such as cipher or bytes")
@@ -107,7 +109,7 @@ def main(argv=None):
             return serve()
         if args.command == "doctor":
             from .runtime import inspect_runtime
-            result = inspect_runtime()
+            result = inspect_runtime(probe_accelerators=args.probe_accelerators)
         elif args.command == "list":
             def family(row):
                 return row["operation_id"].partition(".")[0]

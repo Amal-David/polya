@@ -1,7 +1,8 @@
 # Investigating puzzles with Polya
 
 This guide is for using Polya on a puzzle. [AGENTS.md](../../AGENTS.md) governs
-changes to the repository.
+changes to the repository. The [complete workflow](workflow.md) connects these
+principles to discovery, model admission, continuation and matched evaluation.
 
 ## The loop
 
@@ -60,6 +61,58 @@ parameter recovery, diagnostic failure, or new frontier result.
 Include a known positive, meaningful negatives, malformed inputs and budget cases.
 Use an independent evaluator, exhaustive small cases or a separate implementation.
 For interpretation claims, use held-out evidence or a different extraction route.
+
+### Choose a test that can change the investigation
+
+Before a call, state which supported alternatives it separates and what each
+outcome would change. `hypotheses.compare` can expose differing forced predictions
+within explicit assumption sets. `experiment.rank_tests` ranks the supplied
+predictions by weighted pair separation and caller-estimated cost. Missing
+predictions earn no information credit. Equal weights mean equal supplied weight,
+not equal empirical probability; correlated copies can bias the ranking.
+
+Preserve an unpredicted outcome as missing. A test that produces the same result
+under every active interpretation cannot distinguish them, even when its output
+is exact. If no test has a known disagreement, the operation reports
+`NO_DISCRIMINATING_TEST`; the next need is a better prediction or additional source
+evidence. Ranking acquires no observation and eliminates no hypothesis.
+
+Run the [synthetic assumption-choice example](../../examples/assumption_choice_demo.py)
+with `python -m examples.assumption_choice_demo`. It preserves two equally weighted
+counting conventions and ranks a unit-label observation above a repeated count.
+Its optional council coordination fixture records all eight callback invocations
+and wall time while explicitly reporting zero model calls and unmeasured tokens.
+An actual council evaluation must include every model call, repair, timeout and
+token in the same whole-session budget as the baseline.
+
+### Bind checks to the submitted experiment
+
+Save the exact request, result and receipt together. In the caller's experiment
+record, bind them to the source artifact hash, transcription, normalization,
+active assumptions and answer projection. `receipt.inputs_sha256` identifies the
+validated operation inputs, including defaults; it does not hash the original
+source file or authenticate its transcription. A reproducible calculation can
+still use the wrong input.
+
+Run synthetic positive and negative controls through the same entry point,
+parsing and composition path as the experiment, with the same code revision and
+backend. A passing helper tested separately does not validate the submitted job.
+Check the actual request against the recorded source and conventions before
+using its result as evidence. If they disagree, retract dependent claims and
+rerun the corrected experiment with a new record.
+
+### Make uniqueness conditional on conventions
+
+Apply each counting or normalization convention consistently to every candidate.
+For example, the synthetic candidates `A-B` and `ABC` both contain three
+characters, but only `ABC` contains three letters. A length-three constraint is
+unique under the letters-only convention and ambiguous under the character
+convention. Neither computation determines which convention the source intends.
+
+Preserve plausible conventions as separate models or explicit hypotheses, and
+report uniqueness with the active assumptions and `answer_variables`. Also test
+the model without an uncertain restriction. See the executable
+[alternative-interpretation example](../guides/constraints.md#test-alternative-interpretations).
 
 If an extraction or assumption is corrected, revisit the claims that depend on it;
 do not erase history. For plans, keep the original plan with its receipt. The

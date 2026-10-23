@@ -135,10 +135,10 @@ class ValidationError(ValueError):
 
 
 def _op(operation_id, title, description, request, kernel, terms, postcondition, limits, *, cacheable=True, example=None,
-        execution_error_statuses=(), recovery_hint=None, **result_fields):
+        execution_error_statuses=(), recovery_hint=None, version="1", **result_fields):
     result = output_model(operation_id.replace(".", "_") + "_result", **result_fields) if result_fields else None
     return Operation(operation_id, title, description, request, result, kernel, terms, postcondition, limits,
-                     cacheable=cacheable, example=deepcopy(example),
+                     version=version, cacheable=cacheable, example=deepcopy(example),
                      execution_error_statuses=tuple(execution_error_statuses), recovery_hint=recovery_hint)
 
 
@@ -157,7 +157,7 @@ OPS = [
         "A permutation of source codepoints under the declared grid and reading order.", "65536 codepoints; no padding or truncation.",
         example={"text": "abcdef", "rows": 2, "columns": 3, "order": "column"}, text=str, source_offsets=list[int], unit=str, rows=int, columns=int, order=str, reverse=bool),
     _op("candidate.expand", "Page a finite candidate product", "Expand explicit slot alternatives with stable indices and complete derivation choices.",
-        ExpandInput, primitives.candidate_expand, "cartesian candidate words product slots enumerate batch search space normalization",
+        ExpandInput, primitives.candidate_expand, "cartesian candidate words product slots enumerate batch search space normalization coverage resume paging completed indices",
         "Exactly the requested half-open index range of the ordered slot product. Duplicates preserved.",
         "32 slots, <=1000 outputs/page, 100000 output codepoints. Mixed-radix direct seeking.",
         example={"slots": [["red", "blue"], ["cat", "dog"]], "separator": " "}, total_assignments=int, start=int, stop=int, emitted=int, candidates=list[dict], next_start=int|None,
@@ -189,7 +189,7 @@ OPS = [
         expected_padding_hits=float, probability_scientific=str,
         expected_padding_hits_scientific=str, float_underflow=bool, assumption=str, evidence_kind=str),
     _op("constraints.plan", "Plan declared local factors", "Count product and local-factor work; report connected components.",
-        PlanInput, plan_factors, "constraint factorization pair independent graph components search cost budget",
+        PlanInput, plan_factors, "constraint factorization pair independent graph components search cost budget coverage count cardinality",
         "Counts for caller-supplied domains and factor scopes. Does not establish real-puzzle independence.",
         "Counts only; no evaluation. Survivor joins still add work.",
         joint_assignments=int, factor_local_combinations=list[int], sum_factor_local_combinations=int,
@@ -359,11 +359,22 @@ _FINGERPRINT_GENERATION = None
 def implementation_fingerprint() -> str:
     global _LOADED_FINGERPRINT, _FINGERPRINT_GENERATION
     from .native_z3 import library_generation
-    generation = library_generation()
     with _FINGERPRINT_LOCK:
+        generation = library_generation()
         if _LOADED_FINGERPRINT is None or _FINGERPRINT_GENERATION != generation:
-            _LOADED_FINGERPRINT = _compute_implementation_fingerprint()
-            _FINGERPRINT_GENERATION = generation
+            # Discovery may publish a library itself or race with a recovery.
+            # Cache only a snapshot bracketed by the same generation. Refresh
+            # requires quiesced callers; repeated changes fail after bounded work.
+            for _ in range(3):
+                before = library_generation()
+                snapshot = _compute_implementation_fingerprint()
+                after = library_generation()
+                if before == after:
+                    _LOADED_FINGERPRINT = snapshot
+                    _FINGERPRINT_GENERATION = after
+                    break
+            else:
+                raise RuntimeError('Backend discovery changed repeatedly; retry after workers quiesce')
         base = _LOADED_FINGERPRINT
     return hashlib.sha256((base + canonical_json(execution_mode())).encode("utf8")).hexdigest()
 
@@ -393,25 +404,35 @@ def execute_prepared(op, validated, identity, key):
     result = op.kernel(**validated)
     if op.result:
         result = op.result.model_validate(result).model_dump(mode="json")
-    if len(canonical_json(result).encode("utf8")) > 1_000_000:
+    encoded_result = canonical_json(result).encode("utf8")
+    if len(encoded_result) > 1_000_000:
         raise ValueError("result exceeds 1 MB output admission limit; reduce the requested scope")
+    result_hash = hashlib.sha256(encoded_result).hexdigest()
+    del encoded_result
     # Lazy native imports may change interpreter mode during the kernel. These
     # are boundary observations, not a claim of continuous process monitoring.
     after = execution_mode()
-    final_fingerprint = (implementation_fingerprint()
-                         if after != identity["runtime_mode"] else identity["implementation"])
+    # Backend recovery can change implementation identity without a GIL/JIT change.
+    final_fingerprint = implementation_fingerprint()
     return {"operation_id": op.operation_id, "result": result,
-            "receipt": make_receipt(op, validated, identity, key, result,
-                                    runtime_after=after, final_fingerprint=final_fingerprint)}
+            "receipt": _receipt(op, validated, identity, key, result_hash,
+                                runtime_after=after, final_fingerprint=final_fingerprint)}
 
 
 def make_receipt(op, validated, identity, key, result, *, runtime_after=None, final_fingerprint=None):
     result_hash = hashlib.sha256(canonical_json(result).encode()).hexdigest()
+    return _receipt(op, validated, identity, key, result_hash,
+                    runtime_after=runtime_after, final_fingerprint=final_fingerprint)
+
+
+def _receipt(op, validated, identity, key, result_hash, *, runtime_after=None, final_fingerprint=None):
+    """Build from the already admission-checked result digest; validators rehash independently."""
     before = identity["runtime_mode"]
     after = before if runtime_after is None else runtime_after
     return {"experiment_key": key,
                         "implementation_fingerprint": final_fingerprint or identity["implementation"],
                         "preparation_implementation_fingerprint": identity["implementation"],
+                        "implementation_changed": (final_fingerprint or identity["implementation"]) != identity["implementation"],
                         "runtime_observations": {"before": before, "after": after,
                                                  "changed": before != after,
                                                  "scope": "Boundary samples, not continuous runtime monitoring."},
