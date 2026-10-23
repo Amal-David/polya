@@ -9,7 +9,9 @@ import pytest
 from polya import catalog
 
 
-@pytest.mark.parametrize('text', ['plain', 'é🙂', 'a' * 999989])
+# Keep large fixture bytes out of pytest node IDs and PYTEST_CURRENT_TEST.
+@pytest.mark.parametrize('text', ['plain', 'é🙂', 'a' * 999989],
+                         ids=['plain', 'unicode', 'near-output-limit'])
 def test_result_receipt_hash_matches_independent_canonical_encoding(text):
     result = {'text': text}
     encoded = json.dumps(result, sort_keys=True, separators=(',', ':'), ensure_ascii=True,
