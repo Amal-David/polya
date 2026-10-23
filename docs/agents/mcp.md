@@ -43,7 +43,8 @@ adapter. Configure `POLYA_PUBLIC_BASE_URL` with the service's public HTTPS origi
 and mount a secret file named `polya-token` at `/etc/secrets/polya-token`, containing
 a random token of at least 32 characters. `POLYA_TOKEN_FILE` can override the path.
 The listener binds to `0.0.0.0` and uses Render's `PORT` (default 10000).
-`GET /healthz` is public and reports package version and process health.
+`GET /healthz` is public and reports package version, process health and the full
+deployed Git revision when Render supplies `RENDER_GIT_COMMIT` (otherwise `null`).
 
 Send `Authorization: Bearer <token>` with MCP requests. A private URL of the form
 `https://<service>/mcp?api_key=<token>` also works for clients without custom-header
@@ -57,6 +58,19 @@ Requests are capped at 1 MB and serialized tool results at 2.2 MB. One operation
 executes at a time in a worker thread so process health remains responsive.
 Operations retain their cooperative budgets; the thread is not a process sandbox.
 The SDK manages the HTTP lifecycle and supports JSON responses.
+
+Each completed HTTP tool call includes a random `polya/execution_id` in its MCP
+`_meta` field. The adapter writes one `polya.tool_call` log event with that same ID,
+the registered operation ID (if known), tool name, outcome, elapsed milliseconds
+(including queue time), package version and deployed revision. Use the ID to join
+a client-saved response to its execution event. `ok` means the tool returned
+successfully; it does not mean the puzzle was solved or enumeration completed.
+Logs omit arguments, query text, outputs, input hashes, exception messages, URLs
+and credentials. Retain full receipts on the client when reproduction is needed.
+Requests rejected by authentication, SDK schema checks or HTTP handling can lack a
+tool event. A process interruption can also prevent the final event from being
+written; absence is not proof of nonexecution. No per-tool history can be recovered
+retroactively from old HTTP status logs.
 
 The deployment installs Pillow, Z3, CP-SAT and AALpy. The optional Jacobian bridge
 still needs a separately installed Jacobian runtime; this image does not include it.

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — comparison failures and service provenance
+
+- Mark `hypotheses.compare` backend failures as MCP execution errors while
+  preserving each case, distinguishing observations and bounded partial outcomes.
+  Version 2 adds typed aggregate status and a failed-case map with recovery guidance.
+- Correlate HTTP tool responses with payload-free execution events using random
+  execution IDs. Report the deployed Git revision in health responses and events.
+  HTTP success and tool success remain distinct from mathematical completeness.
+- Clarify exact request/receipt binding, controls through the actual execution
+  path, and uniqueness conditional on consistent modeling conventions.
+
 ## Unreleased — evidence-first council and investigation utility
 
 - Keep council abstentions incomplete and preserve their reasons in public results.

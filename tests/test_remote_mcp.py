@@ -1,3 +1,7 @@
+import json
+import logging
+import re
+
 import pytest
 
 pytest.importorskip('mcp')
@@ -62,3 +66,87 @@ def test_request_budget_and_missing_secret_fail_closed(client):
                        content=b' ' * 1_000_001).status_code == 413
     with pytest.raises(ValueError, match='at least 32'):
         create_app('', 'https://testserver')
+
+
+def tool_events(caplog):
+    return [json.loads(record.message) for record in caplog.records
+            if record.message.startswith('{"event":"polya.tool_call"')]
+
+
+def test_tool_event_correlates_receipt_without_payloads(client, caplog):
+    caplog.set_level(logging.INFO, logger='uvicorn.error')
+    private_text = 'synthetic-private-input-do-not-log'
+    result = rpc(client, 'tools/call', {'name': 'puzzle.run', 'arguments': {
+        'operation_id': 'text.profile', 'inputs': {'text': private_text},
+    }}).json()['result']
+    event, = tool_events(caplog)
+    assert not result['isError']
+    assert event['execution_id'] == result['_meta']['polya/execution_id']
+    assert re.fullmatch('[0-9a-f]{32}', event['execution_id'])
+    assert event['operation_id'] == 'text.profile' and event['outcome'] == 'ok'
+    assert event['elapsed_ms'] >= 0
+    assert set(event) == {'event', 'execution_id', 'tool', 'operation_id', 'outcome',
+                          'elapsed_ms', 'version', 'revision'}
+    serialized = json.dumps(event)
+    assert private_text not in serialized and TOKEN not in serialized
+    assert result['structuredContent']['data']['receipt']['inputs_sha256'] not in serialized
+
+
+def test_tool_errors_are_logged_without_exception_or_unknown_operation_text(client, caplog):
+    caplog.set_level(logging.INFO, logger='uvicorn.error')
+    private_id = 'synthetic-private-operation-do-not-log'
+    result = rpc(client, 'tools/call', {'name': 'puzzle.run', 'arguments': {
+        'operation_id': private_id, 'inputs': {},
+    }}).json()['result']
+    event, = tool_events(caplog)
+    assert result['isError'] and event['outcome'] == 'tool_error'
+    assert event['operation_id'] is None
+    assert event['execution_id'] == result['_meta']['polya/execution_id']
+    assert private_id not in json.dumps(event)
+
+
+def test_discovery_query_is_not_logged_and_execution_ids_are_distinct(client, caplog):
+    caplog.set_level(logging.INFO, logger='uvicorn.error')
+    for _ in range(2):
+        result = rpc(client, 'tools/call', {'name': 'puzzle.find', 'arguments': {
+            'query': 'synthetic-private-query-do-not-log',
+        }}).json()['result']
+        assert not result['isError']
+    first, second = tool_events(caplog)
+    assert first['execution_id'] != second['execution_id']
+    assert first['operation_id'] is None
+    assert 'synthetic-private-query-do-not-log' not in json.dumps([first, second])
+
+
+def test_health_revision_is_exact_and_never_arbitrary_environment_text(client, monkeypatch):
+    monkeypatch.setenv('RENDER_GIT_COMMIT', 'a' * 40)
+    assert client.get('/healthz').json()['revision'] == 'a' * 40
+    monkeypatch.setenv('RENDER_GIT_COMMIT', 'synthetic-secret-not-a-revision')
+    assert client.get('/healthz').json()['revision'] is None
+    monkeypatch.delenv('RENDER_GIT_COMMIT')
+    assert client.get('/healthz').json()['revision'] is None
+
+
+@pytest.mark.parametrize('failure_kind', ['output_limit', 'protocol_error', 'internal_error'])
+def test_adapter_failures_keep_bounded_correlated_error(client, caplog, monkeypatch, failure_kind):
+    from deploy.server import Server
+
+    def fail(self, message):
+        if failure_kind == 'internal_error':
+            raise RuntimeError('synthetic-private-exception-do-not-log')
+        if failure_kind == 'protocol_error':
+            return {'error': {'message': 'synthetic-private-error-do-not-log'}}
+        return {'result': {'isError': False, 'content': [
+            {'type': 'text', 'text': 'x' * 2_200_001}]}}
+
+    monkeypatch.setattr(Server, 'handle', fail)
+    caplog.set_level(logging.INFO, logger='uvicorn.error')
+    result = rpc(client, 'tools/call', {'name': 'puzzle.run', 'arguments': {
+        'operation_id': 'text.profile', 'inputs': {'text': 'abc'},
+    }}).json()['result']
+    event, = tool_events(caplog)
+    assert result['isError'] and event['outcome'] == failure_kind
+    assert result['_meta']['polya/execution_id'] == event['execution_id']
+    assert len(json.dumps(result)) < 1000
+    assert 'No puzzle hypothesis' in result['content'][0]['text']
+    assert 'synthetic-private' not in json.dumps(event) + json.dumps(result)

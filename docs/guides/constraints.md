@@ -133,6 +133,14 @@ A forced value requires refuting the alternatives. `not_forced` has a witnessed
 alternative; `undetermined` means the budget did not settle it. Every SAT witness
 is rechecked by a separate Python evaluator.
 
+`hypotheses.compare` preserves these outcomes under each case name. Its aggregate
+`status` is `COMPLETE` when every case is complete, `PARTIAL` for unfinished
+checks, or `EXECUTION_ERROR` when any case reports `UNAVAILABLE` or `UNSUPPORTED`.
+`failed_cases` identifies those operational failures; MCP also sets `isError`
+and supplies a recovery hint. Other case results and the receipt remain available.
+A complete comparison may contain `UNSAT` cases. A partial comparison or an empty
+observation list does not establish equivalence or reject an interpretation.
+
 ## Limits and cache
 
 Size, AST depth, unrolling, check count, reference work, elapsed time and output

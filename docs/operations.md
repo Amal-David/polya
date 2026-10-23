@@ -1130,7 +1130,7 @@ Example input:
 
 ### `hypotheses.compare`
 
-**Compare competing interpretations.** Version 1; cacheable: no.
+**Compare competing interpretations.** Version 2; cacheable: no.
 
 Analyze named assumption sets and propose differing forced observations.
 
@@ -1152,7 +1152,7 @@ Optional inputs:
 - `max_checks`: integer, default `1000`
 - `max_assignments`: integer, default `100000`
 
-Output fields: `cases`, `distinguishing_observations`, `complete`, `scope`.
+Output fields: `status`, `failed_cases`, `cases`, `distinguishing_observations`, `complete`, `scope`.
 
 ## jacobian
 
