@@ -2,7 +2,7 @@
 
 Models are JSON data, not Python source or SMT scripts. Expressions use
 variable-name strings, strict integer and Boolean literals, and typed AST objects.
-The operations are `symbolic.solve`, `symbolic.analyze`, `symbolic.verify`,
+The operations are `symbolic.inspect`, `symbolic.solve`, `symbolic.analyze`, `symbolic.verify`,
 `symbolic.export` and `hypotheses.compare`. Finite-table problems use
 `constraints.plan` and `constraints.solve`.
 
@@ -73,6 +73,57 @@ Rule IDs are unique. Observations and derived rules are always active. Hypothese
 are active only when named in `assumptions`. Disabling a hypothesis is not its
 negation; add an explicit alternative rule to test the negation.
 
+## Inspect admission before execution
+
+`symbolic.inspect` accepts the raw model and returns field-level diagnostics,
+bounded-domain examples, capability limits and an admitted `normalized_model`
+when valid. `valid: false` is a successful diagnostic result, not UNSAT. Missing
+domains identify the variable; expression errors identify the rule's `expr` field.
+Examples are never inserted as guessed bounds. Inspection checks named
+`assumptions` but does not enable an unnamed hypothesis or run a solver.
+
+Integer multiplication requires an integer literal operand. `mul("x", "y")`
+is unsupported even if the caller expects a linearization to exist. Boolean and
+floating-point values are not coerced to integer coefficients. For a different
+finite encoding, justify its domains and equivalence explicitly.
+
+Coefficient normalization is opt-in and applies only to integer-affine comparisons:
+
+```python
+from polya import run
+from polya.model import op
+
+raw_model = {
+    "variables": {"x": {"lower": -3, "upper": 3}},
+    "constraints": [{"id": "bound", "expr": op(
+        "ge", op("mul", 4_000_000_000_000, "x"), 6_000_000_000_001
+    )}],
+}
+inspection = run("symbolic.inspect", {
+    "model": raw_model, "normalize_coefficients": True
+})["result"]
+assert inspection["valid"]
+admitted = inspection["normalized_model"]
+assert admitted["constraints"][0]["expr"] == op("ge", "x", 2)
+answer = run("symbolic.solve", {"model": admitted, "backend": "reference"})
+assert answer["result"]["solutions"] == [{"x": 2}, {"x": 3}]
+```
+
+Inspection combines affine terms, removes exact cancellations and divides by a
+positive coefficient gcd. Integer inequalities use exact floor/ceiling rules;
+strict comparisons can become non-strict comparisons. A non-divisible equality
+can become `false`, and its disequality `true`. All-zero comparisons reduce to
+their exact Boolean value. Negative signs are retained through equivalent order
+reversal. Bit-vector operations, domains, hypotheses and answer projections keep
+their semantics. No rational arithmetic extension is implied.
+
+The caller explicitly executes the returned model. Ordinary solver requests still
+enforce their existing 10^12 literal/domain and AST limits. Inspection additionally
+bounds raw integers below 2^256 and normalization intermediates below 2^1024; an
+irreducible oversized coefficient remains invalid. Input and admitted-model hashes
+and per-rewrite hashes bind the representations, not their source authenticity.
+Keep the inspection, exact submitted model and execution receipt together.
+
 ## Grammar
 
 Operators are `{"op":"name","args":[...]}`; the Python helper is
@@ -133,9 +184,19 @@ A forced value requires refuting the alternatives. `not_forced` has a witnessed
 alternative; `undetermined` means the budget did not settle it. Every SAT witness
 is rechecked by a separate Python evaluator.
 
+`symbolic.solve` and `symbolic.analyze` also report `execution_status` separately:
+`COMPLETE`, `PARTIAL` or `EXECUTION_ERROR`. The typed `failed_checks` list records
+the phase, optional variable, backend status and reason when a setup,
+satisfiability, enumeration, uniqueness or forced-value check is unavailable or
+unsupported. A valid SAT witness is retained if a later check fails. Unsettled
+uniqueness stays UNKNOWN; an already verified alternative still proves MULTIPLE.
+Budget exhaustion is PARTIAL with no fabricated backend failure. MCP marks
+`EXECUTION_ERROR` while preserving the mathematical result and receipt.
+
 `hypotheses.compare` preserves these outcomes under each case name. Its aggregate
 `status` is `COMPLETE` when every case is complete, `PARTIAL` for unfinished
-checks, or `EXECUTION_ERROR` when any case reports `UNAVAILABLE` or `UNSUPPORTED`.
+checks, or `EXECUTION_ERROR` when any case or one of its later checks reports
+`UNAVAILABLE` or `UNSUPPORTED`.
 `failed_cases` identifies those operational failures; MCP also sets `isError`
 and supplies a recovery hint. Other case results and the receipt remain available.
 A complete comparison may contain `UNSAT` cases. A partial comparison or an empty

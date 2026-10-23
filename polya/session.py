@@ -36,7 +36,8 @@ class Session:
             envelope = execute_prepared(op, validated, identity, key)
             # Never reuse an execution spanning a runtime-mode transition as
             # though it ran wholly in either the initial or final mode.
-            if op.cacheable and not envelope["receipt"]["runtime_observations"]["changed"]:
+            if (op.cacheable and not envelope["receipt"]["runtime_observations"]["changed"]
+                    and not envelope["receipt"]["implementation_changed"]):
                 self.connection.execute("INSERT INTO results VALUES (?,?,?)", (key, canonical_json(identity), canonical_json(envelope)))
         self.connection.execute("INSERT INTO calls (key,at,cache_hit) VALUES (?,?,?)", (key, time.time(), int(cache_hit)))
         self.connection.commit()

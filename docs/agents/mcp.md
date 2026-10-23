@@ -62,7 +62,8 @@ The SDK manages the HTTP lifecycle and supports JSON responses.
 Each completed HTTP tool call includes a random `polya/execution_id` in its MCP
 `_meta` field. The adapter writes one `polya.tool_call` log event with that same ID,
 the registered operation ID (if known), tool name, outcome, elapsed milliseconds
-(including queue time), package version and deployed revision. Use the ID to join
+(including queue time), worker queue/execution times, result JSON-size-check
+serialization time, package version and deployed revision. Use the ID to join
 a client-saved response to its execution event. `ok` means the tool returned
 successfully; it does not mean the puzzle was solved or enumeration completed.
 Logs omit arguments, query text, outputs, input hashes, exception messages, URLs
@@ -71,6 +72,24 @@ Requests rejected by authentication, SDK schema checks or HTTP handling can lack
 tool event. A process interruption can also prevent the final event from being
 written; absence is not proof of nonexecution. No per-tool history can be recovered
 retroactively from old HTTP status logs.
+
+The adapter also reduces known loggers in the pinned MCP SDK to component/level
+metadata, including warning/error/debug paths that otherwise echo caller-selected
+names or headers. Regression tests inspect every captured application record for
+synthetic secrets across these paths. This does not certify future SDK loggers,
+HTTP client logs or Render's request logging. Access logging remains disabled.
+These filters are process-wide for the standalone HTTP adapter, including direct
+root-log calls from the pinned shared-session module. SDK exception detail is
+removed. Embedding the adapter alongside other MCP applications applies the same
+filtering to their shared SDK components; unrelated root application logs remain
+unchanged.
+
+For bounded local transport diagnostics, run
+`python scripts/benchmark_transport.py --repeats 20 --concurrency 3`.
+It separates worker queue, execution and output-encoding checks while keeping one
+worker. Local ASGI timing excludes TCP/TLS and production traffic. Cancellation
+and hard process deadlines remain unsupported; cooperative operation budgets and
+existing HTTP admission/concurrency caps are retained.
 
 The deployment installs Pillow, Z3, CP-SAT and AALpy. The optional Jacobian bridge
 still needs a separately installed Jacobian runtime; this image does not include it.

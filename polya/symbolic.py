@@ -94,6 +94,7 @@ def blocking(model,assignment,names):
 def checked(engine,model,assumptions,extras):
     try: r=engine.check(extras)
     except UnsupportedModel as exc: return {'status':'UNSUPPORTED','reason':str(exc)}
+    except BackendUnavailable as exc: return {'status':'UNAVAILABLE','reason':str(exc)}
     if r['status']=='SAT':
         v=verify(model,r['assignment'],assumptions)
         if not v['valid'] or not all(evaluate(e,r['assignment'],model.variables) for e in extras):
@@ -108,18 +109,32 @@ def base_result(model,active,budget,backend,engine):
             'answer_variables':model.projection,'stats':budget.stats(),'scope':SCOPE}
 
 
+def _record_failure(failures,result,phase,variable=None):
+    if result['status'] in ('UNAVAILABLE','UNSUPPORTED'):
+        failures.append({'phase':phase,'variable':variable,'status':result['status'],
+                         'reason':result.get('reason') or 'Backend could not complete this check.'})
+
+
+def _execution_fields(complete,failures):
+    return {'execution_status':'EXECUTION_ERROR' if failures else 'COMPLETE' if complete else 'PARTIAL',
+            'failed_checks':failures}
+
+
 def solve(model:dict,assumptions:list[str] | None=None,backend='auto',max_solutions=100,
           timeout_ms=5000,max_checks=1000,max_assignments=100000):
     assumptions=[] if assumptions is None else assumptions
     if type(max_solutions) is not int or not 1<=max_solutions<=1000: raise ValueError('max_solutions must be in [1,1000]')
     m,active,b,e,backend,error=setup(model,assumptions,backend,timeout_ms,max_checks,max_assignments)
     if error:
-        return {**base_result(m,active,b,backend,e),'status':'UNAVAILABLE' if isinstance(error,BackendUnavailable) else 'UNSUPPORTED',
+        status='UNAVAILABLE' if isinstance(error,BackendUnavailable) else 'UNSUPPORTED'
+        failures=[{'phase':'setup','variable':None,'status':status,'reason':str(error)}]
+        return {**base_result(m,active,b,backend,e),'status':status,**_execution_fields(False,failures),
                 'solutions':[],'witnesses':[],'complete':False,'reason':str(error),'unsat_core':None,'core_minimal':False}
-    sols=[]; witnesses=[]; extras=[]; complete=False; core=None; reason=None; status='UNKNOWN'
+    sols=[]; witnesses=[]; extras=[]; complete=False; core=None; reason=None; status='UNKNOWN'; failures=[]
     try:
         while True:
             r=checked(e,m,assumptions,extras)
+            _record_failure(failures,r,'enumeration' if sols else 'satisfiability')
             if r['status']=='UNSAT':
                 complete=True; status='SAT' if sols else 'UNSAT'
                 if not sols: core=r.get('core',[])
@@ -131,7 +146,7 @@ def solve(model:dict,assumptions:list[str] | None=None,backend='auto',max_soluti
                 status='SAT'; reason='max_solutions'; break
             a=r['assignment']; witnesses.append(a)
             sols.append({n:a[n] for n in m.projection}); extras.append(blocking(m,a,m.projection))
-        return {**base_result(m,active,b,backend,e),'status':status,'solutions':sols,'witnesses':witnesses,
+        return {**base_result(m,active,b,backend,e),'status':status,**_execution_fields(complete,failures),'solutions':sols,'witnesses':witnesses,
                 'complete':complete,'reason':reason,'unsat_core':core,'core_minimal':False}
     finally: e.close()
 
@@ -140,14 +155,17 @@ def analyze(model:dict,assumptions:list[str] | None=None,backend='auto',timeout_
             max_checks=1000,max_assignments=100000):
     assumptions=[] if assumptions is None else assumptions
     m,active,b,e,backend,error=setup(model,assumptions,backend,timeout_ms,max_checks,max_assignments)
+    failures=[]
     output={'status':'UNKNOWN','assignment':None,'alternative_assignment':None,'uniqueness':'UNKNOWN',
             'forced_values':{},'not_forced':[],'undetermined':list(m.projection),'unsat_core':None,
             'core_minimal':False,'core_sources':{},'complete':False,'reason':None}
     if error:
         output.update(status='UNAVAILABLE' if isinstance(error,BackendUnavailable) else 'UNSUPPORTED',reason=str(error))
-        return {**base_result(m,active,b,backend,e),**output}
+        _record_failure(failures,output,'setup')
+        return {**base_result(m,active,b,backend,e),**output,**_execution_fields(False,failures)}
     try:
         first=checked(e,m,assumptions,[]); output['status']=first['status']
+        _record_failure(failures,first,'satisfiability')
         if first['status']=='UNSAT':
             core=first.get('core',[])
             output.update(uniqueness='UNSAT',unsat_core=core,complete=True,undetermined=[],
@@ -155,6 +173,7 @@ def analyze(model:dict,assumptions:list[str] | None=None,backend='auto',timeout_
         elif first['status']=='SAT':
             a=first['assignment']; output['assignment']=a
             alternative=checked(e,m,assumptions,[blocking(m,a,m.projection)])
+            _record_failure(failures,alternative,'uniqueness')
             if alternative['status']=='UNSAT':
                 output.update(uniqueness='UNIQUE',forced_values={n:a[n] for n in m.projection},undetermined=[],complete=True)
             else:
@@ -166,13 +185,14 @@ def analyze(model:dict,assumptions:list[str] | None=None,backend='auto',timeout_
                     if alternative['status']=='SAT' and alternative['assignment'][n]!=a[n]:
                         output['not_forced'].append(n); continue
                     r=checked(e,m,assumptions,[blocking(m,a,[n])])
+                    _record_failure(failures,r,'forced_value',n)
                     if r['status']=='UNSAT': output['forced_values'][n]=a[n]
                     elif r['status']=='SAT': output['not_forced'].append(n)
                     else: undetermined.append(n); output['reason']=r.get('reason')
                 output['undetermined']=undetermined
                 output['complete']=not undetermined and output['uniqueness']!='UNKNOWN'
         else: output['reason']=first.get('reason')
-        return {**base_result(m,active,b,backend,e),**output}
+        return {**base_result(m,active,b,backend,e),**output,**_execution_fields(output['complete'],failures)}
     finally: e.close()
 
 
@@ -184,7 +204,8 @@ def compare_hypotheses(model:dict,cases:dict[str,list[str]],backend='auto',timeo
     for name,enabled in cases.items():
         remaining=max(0,int((deadline-time.monotonic())*1000))
         if remaining<=0 or checks<=0 or assignments<=0:
-            results[name]={'status':'UNKNOWN','complete':False,'forced_values':{},'reason':'shared_budget'}
+            results[name]={'status':'UNKNOWN','complete':False,'forced_values':{},'reason':'shared_budget',
+                           **_execution_fields(False,[])}
             continue
         r=analyze(model,enabled,backend,remaining,checks,assignments)
         results[name]=r
@@ -198,8 +219,8 @@ def compare_hypotheses(model:dict,cases:dict[str,list[str]],backend='auto',timeo
                 if variable in rz['forced_values'] and rz['forced_values'][variable]!=av:
                     experiments.append({'variable':variable,'predictions':{a:av,z:rz['forced_values'][variable]},
                                         'observation_acquired':False})
-    failed_cases={name:r['status'] for name,r in results.items()
-                  if r['status'] in ('UNAVAILABLE','UNSUPPORTED')}
+    failed_cases={name:(r['status'] if r['status'] in ('UNAVAILABLE','UNSUPPORTED') else r['failed_checks'][0]['status'])
+                  for name,r in results.items() if r['status'] in ('UNAVAILABLE','UNSUPPORTED') or r.get('failed_checks')}
     complete=all(r.get('complete',False) for r in results.values())
     return {'status':'EXECUTION_ERROR' if failed_cases else 'COMPLETE' if complete else 'PARTIAL',
             'failed_cases':failed_cases,'cases':results,'distinguishing_observations':experiments,

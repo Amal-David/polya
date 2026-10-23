@@ -1,6 +1,6 @@
 # Operation reference
 
-Polya registers 53 operations in 23 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
+Polya registers 54 operations in 23 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
 
 Families: [artifact](#artifact), [automata](#automata), [backends](#backends), [bits](#bits), [bytes](#bytes), [candidate](#candidate), [casepack](#casepack), [cipher](#cipher), [constraints](#constraints), [council](#council), [crypto](#crypto), [evidence](#evidence), [experiment](#experiment), [grid](#grid), [hypotheses](#hypotheses), [jacobian](#jacobian), [mechanism](#mechanism), [pattern](#pattern), [specialist](#specialist), [symbolic](#symbolic), [text](#text), [utility](#utility), [verify](#verify).
 
@@ -1130,7 +1130,7 @@ Example input:
 
 ### `hypotheses.compare`
 
-**Compare competing interpretations.** Version 2; cacheable: no.
+**Compare competing interpretations.** Version 3; cacheable: no.
 
 Analyze named assumption sets and propose differing forced observations.
 
@@ -1549,7 +1549,7 @@ Output fields: `replay_consistent`, `commitment_match`, `status`, `plaintext_sha
 
 ### `symbolic.analyze`
 
-**Analyze uniqueness and consequences.** Version 1; cacheable: no.
+**Analyze uniqueness and consequences.** Version 2; cacheable: no.
 
 Check projected uniqueness, forced values, and source-linked contradictions.
 
@@ -1572,7 +1572,7 @@ Optional inputs:
 - `max_checks`: integer, default `1000`
 - `max_assignments`: integer, default `100000`
 
-Output fields: `backend`, `backend_version`, `active_constraint_ids`, `enabled_hypotheses`, `answer_variables`, `stats`, `scope`, `status`, `assignment`, `alternative_assignment`, `uniqueness`, `forced_values`, `not_forced`, `undetermined`, `unsat_core`, `core_minimal`, `core_sources`, `complete`, `reason`.
+Output fields: `backend`, `backend_version`, `active_constraint_ids`, `enabled_hypotheses`, `answer_variables`, `stats`, `scope`, `execution_status`, `failed_checks`, `status`, `assignment`, `alternative_assignment`, `uniqueness`, `forced_values`, `not_forced`, `undetermined`, `unsat_core`, `core_minimal`, `core_sources`, `complete`, `reason`.
 
 Example input:
 
@@ -1660,9 +1660,68 @@ Optional inputs:
 
 Output fields: `smt2`, `variable_mapping`, `constraint_mapping`, `scope`.
 
+### `symbolic.inspect`
+
+**Preflight a bounded symbolic model.** Version 1; cacheable: yes.
+
+Return field diagnostics and explicit optional exact integer coefficient reduction before solver admission.
+
+Postcondition: Diagnostics and explicitly requested integer-equivalent rewriting only; no solver execution, inferred bounds or clue interpretation.
+
+Limits:
+
+- 256 variables,1024 rules,20000 AST nodes
+- raw integers <=256 bits, normalized intermediate integers <=1024 bits
+- output admission bounds remain enforced.
+
+Required inputs:
+
+- `model`: object of JsonValue
+
+Optional inputs:
+
+- `assumptions`: array of string
+- `normalize_coefficients`: boolean, default `false`
+
+Output fields: `status`, `valid`, `diagnostics`, `diagnostics_truncated`, `normalized_model`, `input_model_sha256`, `normalized_model_sha256`, `normalization_applied`, `rewrites`, `capabilities`, `domain_examples`, `scope`.
+
+Example input:
+
+```json
+{
+  "model": {
+    "variables": {
+      "x": {
+        "lower": 0,
+        "upper": 3
+      }
+    },
+    "constraints": [
+      {
+        "id": "clue",
+        "expr": {
+          "op": "ge",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                4000000000000,
+                "x"
+              ]
+            },
+            6000000000001
+          ]
+        }
+      }
+    ]
+  },
+  "normalize_coefficients": true
+}
+```
+
 ### `symbolic.solve`
 
-**Solve symbolic constraints.** Version 1; cacheable: no.
+**Solve symbolic constraints.** Version 2; cacheable: no.
 
 Enumerate projected answers and retain independently checked full witnesses.
 
@@ -1686,7 +1745,7 @@ Optional inputs:
 - `max_assignments`: integer, default `100000`
 - `max_solutions`: integer, default `100`
 
-Output fields: `backend`, `backend_version`, `active_constraint_ids`, `enabled_hypotheses`, `answer_variables`, `stats`, `scope`, `status`, `solutions`, `witnesses`, `complete`, `reason`, `unsat_core`, `core_minimal`.
+Output fields: `backend`, `backend_version`, `active_constraint_ids`, `enabled_hypotheses`, `answer_variables`, `stats`, `scope`, `execution_status`, `failed_checks`, `status`, `solutions`, `witnesses`, `complete`, `reason`, `unsat_core`, `core_minimal`.
 
 Example input:
 

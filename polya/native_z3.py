@@ -71,10 +71,14 @@ _LIBRARY_GENERATION = 0
 
 def load_library():
     """Cache only successful loads; configure shared ctypes functions once."""
-    global _LIBRARY
+    global _LIBRARY, _LIBRARY_GENERATION
     with _LIBRARY_LOCK:
         if _LIBRARY is UNSET:
             _LIBRARY = _load_library_uncached()
+            # A previous fingerprint may have observed an unavailable backend.
+            # Successful retry must invalidate that identity even without an
+            # explicit refresh. Failed loads still leave discovery retryable.
+            _LIBRARY_GENERATION += 1
         return _LIBRARY
 
 
@@ -83,6 +87,7 @@ def refresh_library():
 
     Existing engines retain their own CDLL reference. This does not unload or
     hot-swap a native binary; restart the process after replacing a loaded file.
+    Generation also advances when a subsequent successful load is published.
     """
     global _LIBRARY, _LIBRARY_GENERATION
     with _LIBRARY_LOCK:

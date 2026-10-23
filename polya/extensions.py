@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import Field
 from .automata import StrictModel,Machine,from_runs,simulate,distinguish
 from .model import PuzzleModel,verify
+from .model_admission import InspectInput as ModelInspectInput, ModelDiagnostic, ModelRewrite, FailedCheck, inspect_model
 from .symbolic import solve,analyze,compare_hypotheses,capabilities
 from .learning import learn_local
 from .native_z3 import Emitter
@@ -63,7 +64,9 @@ def export(model,assumptions):
 
 def extension_ops(make):
     common={'backend':str,'backend_version':str|None,'active_constraint_ids':list[str],
-            'enabled_hypotheses':list[str],'answer_variables':list[str],'stats':dict,'scope':str}
+            'enabled_hypotheses':list[str],'answer_variables':list[str],'stats':dict,'scope':str,
+            'execution_status':Literal['COMPLETE','PARTIAL','EXECUTION_ERROR'],
+            'failed_checks':list[FailedCheck]}
     return [
         make('automata.simulate_many','Replay a batch of sequences','Prepare a detached transition snapshot once for a bounded batch.',
              ReplayManyInput,simulate_many,'automata batch replay sequence prepared throughput',
@@ -74,27 +77,35 @@ def extension_ops(make):
              Empty,capabilities,'backends capabilities z3 cpsat ortools learning aalpy offline',
              'Availability only, not a claim that an optional dependency passed integration tests.',
              'Local package/library inspection only.',cacheable=False,backends=dict,scope=str),
+        make('symbolic.inspect','Preflight a bounded symbolic model','Return field diagnostics and explicit optional exact integer coefficient reduction before solver admission.',
+             ModelInspectInput,inspect_model,'model preflight bounded domain validation diagnostic nonlinear linear integer coefficient normalization repair inspect',
+             'Diagnostics and explicitly requested integer-equivalent rewriting only; no solver execution, inferred bounds or clue interpretation.',
+             '256 variables,1024 rules,20000 AST nodes; raw integers <=256 bits, normalized intermediate integers <=1024 bits; output admission bounds remain enforced.',
+             example={'model':{'variables':{'x':{'lower':0,'upper':3}},'constraints':[{'id':'clue','expr':{'op':'ge','args':[{'op':'mul','args':[4000000000000,'x']},6000000000001]}}]},'normalize_coefficients':True},
+             status=Literal['VALID','INVALID'],valid=bool,diagnostics=list[ModelDiagnostic],diagnostics_truncated=bool,
+             normalized_model=dict|None,input_model_sha256=str,normalized_model_sha256=str|None,
+             normalization_applied=bool,rewrites=list[ModelRewrite],capabilities=dict,domain_examples=dict,scope=str),
         make('symbolic.solve','Solve symbolic constraints','Enumerate projected answers and retain independently checked full witnesses.',
              SymbolicSolveInput,solve,'sat smt cp satisfiable symbolic boolean arithmetic bitvector enumerate sudoku logic all_different',
              'Exact witnesses for the formal model. Complete only after enumeration exhaustion; UNKNOWN is not UNSAT.',
-             '256 variables,1024 rules,20000 AST nodes; time,check,reference-work and output budgets.',cacheable=False,
+             '256 variables,1024 rules,20000 AST nodes; time,check,reference-work and output budgets.',cacheable=False,version='2',
              example={'model':{'variables':{'x':{'lower':0,'upper':3},'y':{'lower':0,'upper':3}},
                                'constraints':[{'id':'sum','expr':{'op':'eq','args':[{'op':'add','args':['x','y']},3]}}]},
                       'backend':'reference'},
-             execution_error_statuses=('UNAVAILABLE','UNSUPPORTED'),
+             execution_error_statuses=('UNAVAILABLE','UNSUPPORTED','EXECUTION_ERROR'),
              recovery_hint="Inspect backends.inspect. Install the requested supported backend or explicitly choose another; no hypothesis has been rejected.",
              **common,status=Literal['SAT','UNSAT','UNKNOWN','UNAVAILABLE','UNSUPPORTED'],solutions=list[dict],witnesses=list[dict],complete=bool,reason=str|None,
              unsat_core=list[str]|None,core_minimal=bool),
         make('symbolic.analyze','Analyze uniqueness and consequences','Check projected uniqueness, forced values, and source-linked contradictions.',
              ModelRunInput,analyze,'sat smt unique ambiguity consequences forced contradiction unsat core assumptions',
              'Forced values require refutation of alternatives. Cores are sufficient, not guaranteed minimal; facts remain caller claims.',
-             'Shared budget across all checks; auxiliary variables excluded from projected uniqueness.',cacheable=False,
+             'Shared budget across all checks; auxiliary variables excluded from projected uniqueness.',cacheable=False,version='2',
              example={'model':{'variables':{'x':{'lower':0,'upper':3},'y':{'lower':0,'upper':3}},
                                'constraints':[{'id':'sum','expr':{'op':'eq','args':[{'op':'add','args':['x','y']},3]}},
                                               {'id':'order','expr':{'op':'lt','args':['y','x']}},
                                               {'id':'gap','expr':{'op':'eq','args':[{'op':'sub','args':['x','y']},3]}}]},
                       'backend':'reference'},
-             execution_error_statuses=('UNAVAILABLE','UNSUPPORTED'),
+             execution_error_statuses=('UNAVAILABLE','UNSUPPORTED','EXECUTION_ERROR'),
              recovery_hint="Inspect backends.inspect. Install the requested supported backend or explicitly choose another; no hypothesis has been rejected.",
              **common,status=Literal['SAT','UNSAT','UNKNOWN','UNAVAILABLE','UNSUPPORTED'],assignment=dict|None,alternative_assignment=dict|None,uniqueness=Literal['UNIQUE','MULTIPLE','UNKNOWN','UNSAT'],
              forced_values=dict,not_forced=list[str],undetermined=list[str],unsat_core=list[str]|None,
@@ -112,7 +123,7 @@ def extension_ops(make):
              CompareInput,compare_hypotheses,'hypothesis interpretation compare distinguish prediction experiment observation',
              'Proposed observations distinguish only the specified cases. No real observation is acquired.',
              '2-8 cases, with one shared time/check/reference budget. Empty suggestions do not mean equivalence.',cacheable=False,
-             version='2',execution_error_statuses=('EXECUTION_ERROR',),
+             version='3',execution_error_statuses=('EXECUTION_ERROR',),
              recovery_hint="Inspect failed_cases and backends.inspect. Install the requested supported backend or explicitly choose another; preserved case results remain scoped to their own outcomes.",
              status=Literal['COMPLETE','PARTIAL','EXECUTION_ERROR'],
              failed_cases=dict[str,Literal['UNAVAILABLE','UNSUPPORTED']],

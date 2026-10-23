@@ -86,7 +86,7 @@ def test_tool_event_correlates_receipt_without_payloads(client, caplog):
     assert event['operation_id'] == 'text.profile' and event['outcome'] == 'ok'
     assert event['elapsed_ms'] >= 0
     assert set(event) == {'event', 'execution_id', 'tool', 'operation_id', 'outcome',
-                          'elapsed_ms', 'version', 'revision'}
+                          'elapsed_ms', 'queue_ms', 'execution_ms', 'serialization_ms', 'version', 'revision'}
     serialized = json.dumps(event)
     assert private_text not in serialized and TOKEN not in serialized
     assert result['structuredContent']['data']['receipt']['inputs_sha256'] not in serialized
@@ -150,3 +150,75 @@ def test_adapter_failures_keep_bounded_correlated_error(client, caplog, monkeypa
     assert len(json.dumps(result)) < 1000
     assert 'No puzzle hypothesis' in result['content'][0]['text']
     assert 'synthetic-private' not in json.dumps(event) + json.dumps(result)
+
+
+def test_all_captured_application_logs_omit_request_secrets(client, caplog):
+    caplog.set_level(logging.DEBUG)
+    private = 'synthetic-private-app-record-8675309'
+    for tool, arguments in [
+        ('puzzle.find', {'query': private}),
+        ('puzzle.run', {'operation_id': 'text.profile', 'inputs': {'text': private}}),
+        ('puzzle.run', {'operation_id': private, 'inputs': {}}),
+        (private, {}),
+    ]:
+        rpc(client, 'tools/call', {'name': tool, 'arguments': arguments})
+    rpc(client, 'tools/call', {'name': 'puzzle.run', 'arguments': private})
+    client.post('/mcp', headers={**HEADERS, 'Host': private}, json={})
+    client.post('/mcp', headers={**HEADERS, 'Origin': 'https://' + private}, json={})
+    from mcp.shared import session as sdk_session
+    records = [record for record in caplog.records
+               if record.name.startswith(('mcp.', 'uvicorn.')) or record.pathname == sdk_session.__file__]
+    assert records
+    for record in records:
+        assert private not in record.getMessage()
+        assert TOKEN not in record.getMessage()
+        assert record.exc_info is None and record.stack_info is None
+
+
+def test_worker_concurrency_stays_one_and_queue_metrics_are_separate(client, caplog, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    import time
+    from deploy.server import Server
+
+    original = Server.handle
+    lock = threading.Lock()
+    active = maximum = 0
+
+    def slow(self, message):
+        nonlocal active, maximum
+        with lock:
+            active += 1
+            maximum = max(maximum, active)
+        try:
+            time.sleep(0.02)  # Synthetic work, never a performance assertion.
+            return original(self, message)
+        finally:
+            with lock:
+                active -= 1
+
+    monkeypatch.setattr(Server, 'handle', slow)
+    caplog.set_level(logging.INFO, logger='uvicorn.error')
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        replies = list(pool.map(lambda _: rpc(client, 'tools/call', {'name': 'puzzle.run',
+            'arguments': {'operation_id': 'text.profile', 'inputs': {'text': 'abc'}}}), range(3)))
+    assert maximum == 1 and all(not r.json()['result']['isError'] for r in replies)
+    events = tool_events(caplog)
+    assert len(events) == 3
+    for event in events:
+        assert event['queue_ms'] >= 0 and event['execution_ms'] >= 0
+        assert event['serialization_ms'] >= 0
+        assert event['elapsed_ms'] + 0.01 >= event['queue_ms'] + event['execution_ms']
+
+
+def test_sdk_root_filter_preserves_unrelated_root_application_logs(client, caplog):
+    from deploy.server import RootSDKLogMetadata
+    from mcp.shared import session as sdk_session
+    caplog.set_level(logging.DEBUG)
+    logging.warning('Unrelated application diagnostic remains visible')
+    assert any(record.getMessage() == 'Unrelated application diagnostic remains visible'
+               for record in caplog.records)
+    record = logging.LogRecord('root', logging.WARNING, sdk_session.__file__, 1,
+                               'synthetic-sensitive-argument', (), None)
+    assert RootSDKLogMetadata().filter(record)
+    assert 'synthetic-sensitive-argument' not in record.getMessage()

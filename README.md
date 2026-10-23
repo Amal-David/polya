@@ -63,8 +63,10 @@ assert result["text"] == "ATTACKATDAWN"
 
 Run `polya mcp` as a local stdio server, or deploy the included
 [remote HTTPS adapter](docs/agents/mcp.md#remote-https-on-render) to Render. Both expose
-`puzzle.find` to search for or inspect an operation, and `puzzle.run` to execute one. See [MCP](docs/agents/mcp.md),
-[agent setup](docs/agents/setup.md) and [investigating puzzles](docs/agents/investigating.md).
+`puzzle.find` to search for or inspect an operation, and `puzzle.run` to execute one.
+Start with the [complete agent workflow](docs/agents/workflow.md) for evidence,
+model checks, experiment choice, execution and continuation. See also
+[MCP](docs/agents/mcp.md) and [agent setup](docs/agents/setup.md).
 
 ## Investigation council
 
@@ -103,7 +105,8 @@ agent speedup is claimed.
 - Guides: [ciphers](docs/guides/ciphers.md), [constraints](docs/guides/constraints.md),
   [automata](docs/guides/automata.md), [plans](docs/guides/plans.md),
   [execution and evaluation](docs/guides/execution.md), [Jacobian](docs/guides/jacobian.md)
-- Agents: [MCP](docs/agents/mcp.md), [investigating](docs/agents/investigating.md), [setup](docs/agents/setup.md)
+- Agents: [workflow](docs/agents/workflow.md), [MCP](docs/agents/mcp.md),
+  [investigating](docs/agents/investigating.md), [setup](docs/agents/setup.md)
 - Internals: [architecture](docs/internals/architecture.md), [performance](docs/internals/performance.md),
   [Python support](docs/internals/python-support.md), [scope](docs/internals/scope.md),
   [adversarial review](docs/internals/adversarial-review.md)

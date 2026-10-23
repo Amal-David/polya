@@ -31,7 +31,7 @@ def _digest(value) -> bool:
 
 
 def _validate_receipt(operation_id: str, inputs: dict, envelope: dict,
-                      identity: dict, key: str) -> dict:
+                      identity: dict, key: str, *, expected_implementation: str | None = None) -> dict:
     """Check the locally obtained envelope before discarding its large result.
 
     These are consistency checks, not authentication. The public entry point
@@ -62,9 +62,9 @@ def _validate_receipt(operation_id: str, inputs: dict, envelope: dict,
         final_fingerprint=receipt['implementation_fingerprint'])
     if canonical_json(receipt) != canonical_json(expected):
         raise ValueError('execution receipt does not match the executed request/result')
-    if not observations['changed'] and (receipt['implementation_fingerprint'] !=
-                                         receipt['preparation_implementation_fingerprint']):
-        raise ValueError('execution receipt implementation changed without a runtime change')
+    expected_final = catalog.implementation_fingerprint() if expected_implementation is None else expected_implementation
+    if receipt['implementation_fingerprint'] != expected_final:
+        raise ValueError('execution receipt implementation does not match the observed runtime')
     if op.result:
         op.result.model_validate(envelope['result'])
     return receipt
@@ -188,6 +188,7 @@ class Ledger:
         self.connection = sqlite3.connect(path, timeout=10)
         self.connection.execute('CREATE TABLE IF NOT EXISTS evidence_events (seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL, body TEXT NOT NULL, previous_hash TEXT NOT NULL, event_hash TEXT NOT NULL)')
         self.connection.execute('CREATE TABLE IF NOT EXISTS execution_events (event_id TEXT PRIMARY KEY, payload_sha256 TEXT NOT NULL)')
+        self.connection.execute('CREATE TABLE IF NOT EXISTS calibration_reviews (event_id TEXT PRIMARY KEY, payload_sha256 TEXT NOT NULL)')
         self.connection.commit()
 
     def events(self) -> list[dict]:
@@ -210,7 +211,8 @@ class Ledger:
         return self._append(kind, payload, dependencies=dependencies, retracts=retracts)
 
     def _append(self, kind: str, payload: dict, *, dependencies: list[str] | None = None,
-                retracts: str | None = None, executed: bool = False) -> str:
+                retracts: str | None = None, executed: bool = False,
+                calibration_review: bool = False) -> str:
         if type(kind) is not str or kind not in KINDS or type(payload) is not dict:
             raise ValueError('explicit event kind and object payload required')
         deps=[] if dependencies is None else dependencies
@@ -238,6 +240,9 @@ class Ledger:
             self.connection.execute('INSERT INTO evidence_events VALUES (?,?,?,?,?)',(len(events)+1,event_id,body,prior,digest))
             if executed:
                 self.connection.execute('INSERT INTO execution_events VALUES (?,?)',
+                                        (event_id, _sha(payload)))
+            if calibration_review:
+                self.connection.execute('INSERT INTO calibration_reviews VALUES (?,?)',
                                         (event_id, _sha(payload)))
             self.connection.commit()
             return event_id
@@ -281,6 +286,156 @@ class Ledger:
                    'receipt': receipt, 'receipt_sha256': _sha(receipt), 'page': page}
         event_id = self._append('experiment', payload, dependencies=list(deps), executed=True)
         return {**envelope, 'ledger_event_id': event_id}
+
+    def _record_calibration_review(self, *, ticket_ref: str, manifest_sha256: str,
+                                   controls_sha256: str, report_ref: str,
+                                   preparation_id: str, declared_controls: list[dict],
+                                   records: list[dict]) -> str:
+        """Bind a local calibration review to actual internally indexed executions.
+
+        Workflow-owned records include each exact expected request and its returned
+        envelope. Only compact digests/statuses are retained. Public ``append``
+        remains a claim path and never populates this separate internal index.
+        """
+        if (type(ticket_ref) is not str or type(report_ref) is not str or
+                not _digest(manifest_sha256) or not _digest(controls_sha256) or
+                type(declared_controls) is not list or len(declared_controls) > 8 or
+                _sha(declared_controls) != controls_sha256 or
+                type(records) is not list or len(records) > len(declared_controls)):
+            raise ValueError('invalid bounded calibration review')
+        events = {event['id']: event for event in self.snapshot()['events']}
+        preparation = events.get(preparation_id)
+        if (preparation is None or preparation['kind'] != 'observation' or
+                preparation['review_status'] != 'RECORDED' or
+                preparation['payload'].get('mode') != 'prepared' or
+                preparation['payload'].get('ticket_ref') != ticket_ref):
+            raise ValueError('calibration preparation does not match the ticket')
+        indexed = dict(self.connection.execute('SELECT event_id,payload_sha256 FROM execution_events LIMIT 10001'))
+        if len(indexed) > 10000:
+            raise ValueError('execution index exceeds event limit')
+        rows, dependencies, seen = [], [preparation_id], set()
+        for position, record in enumerate(records):
+            if (type(record) is not dict or type(record.get('id')) is not str or record['id'] in seen or
+                    type(record.get('operation_id')) is not str or type(record.get('output_field')) is not str or
+                    not _digest(record.get('expected_value_sha256')) or
+                    record.get('status') not in ('REPLAY_MATCH', 'REPLAY_MISMATCH', 'EXECUTION_ERROR', 'LATE_RESULT')):
+                raise ValueError('invalid calibration control record')
+            seen.add(record['id'])
+            op_id = catalog.canonical_operation_id(record['operation_id'])
+            declared = declared_controls[position]
+            if (any(record[key] != declared.get(key) for key in
+                    ('id', 'output_field', 'expected_value_sha256')) or
+                    op_id != catalog.canonical_operation_id(declared.get('operation_id'))):
+                raise ValueError('calibration record does not match declared control order')
+            row = {name: record[name] for name in ('id', 'output_field', 'expected_value_sha256', 'status')}
+            row['operation_id'] = op_id
+            if record.get('envelope') is None:
+                if record['status'] != 'EXECUTION_ERROR':
+                    raise ValueError('successful calibration requires an indexed execution')
+                row.update(execution_event_id=None, inputs_sha256=None, result_sha256=None,
+                           receipt_sha256=None, operation_version=None, observed_value_sha256=None)
+                rows.append(row)
+                continue
+            _, normalized, identity, key = catalog.prepare(op_id, record['inputs'])
+            envelope = record['envelope']
+            receipt = _validate_receipt(op_id, normalized, envelope, identity, key)
+            execution_id = envelope.get('ledger_event_id')
+            execution = events.get(execution_id)
+            if (execution is None or execution_id not in indexed or execution['kind'] != 'experiment' or
+                    execution['review_status'] != 'RECORDED' or
+                    _sha(execution['payload']) != indexed[execution_id] or
+                    execution['payload'].get('execution_schema') != 1 or
+                    execution['payload'].get('operation_id') != op_id or
+                    execution['payload'].get('receipt') != receipt or
+                    preparation_id not in execution['dependencies']):
+                raise ValueError('calibration result is not its internally executed request')
+            if record['output_field'] not in envelope['result']:
+                raise ValueError('calibration output field is missing')
+            observed = _sha(envelope['result'][record['output_field']])
+            expected_status = 'REPLAY_MATCH' if observed == record['expected_value_sha256'] else 'REPLAY_MISMATCH'
+            if record['status'] not in (expected_status, 'LATE_RESULT'):
+                raise ValueError('calibration status disagrees with observed output')
+            row.update(execution_event_id=execution_id, inputs_sha256=receipt['inputs_sha256'],
+                       result_sha256=receipt['result_sha256'], receipt_sha256=_sha(receipt),
+                       operation_version=receipt['operation_version'], observed_value_sha256=observed)
+            rows.append(row)
+            dependencies.append(execution_id)
+        payload = {'continuation_schema': 1, 'mode': 'controls', 'calibration_schema': 1,
+                   'ticket_ref': ticket_ref, 'manifest_sha256': manifest_sha256,
+                   'controls_sha256': controls_sha256, 'report_ref': report_ref,
+                   'control_count': len(declared_controls), 'preparation_id': preparation_id, 'records': rows}
+        return self._append('review', payload, dependencies=list(dict.fromkeys(dependencies)),
+                            calibration_review=True)
+
+    def calibration_reviews(self) -> dict[str, dict]:
+        """Read integrity-bound local calibration reviews, retaining invalidation.
+
+        This checks internal index membership, exact execution receipt links and
+        dependency chains. It does not authenticate a database against its writer.
+        Generic or remote review claims are deliberately absent from this result.
+        """
+        owned_transaction = not self.connection.in_transaction
+        try:
+            if owned_transaction:
+                self.connection.execute('BEGIN')
+            events = {event['id']: event for event in self.snapshot()['events']}
+            reviews = dict(self.connection.execute('SELECT event_id,payload_sha256 FROM calibration_reviews LIMIT 10001'))
+            executions = dict(self.connection.execute('SELECT event_id,payload_sha256 FROM execution_events LIMIT 10001'))
+            if owned_transaction:
+                self.connection.commit()
+        except Exception:
+            if owned_transaction:
+                self.connection.rollback()
+            raise
+        if (len(reviews) > 10000 or len(executions) > 10000 or
+                not set(reviews) <= events.keys() or not set(executions) <= events.keys()):
+            raise ValueError('calibration/execution index integrity check failed')
+        result = {}
+        for event_id, digest in reviews.items():
+            event = events[event_id]
+            payload = event['payload']
+            if (event['kind'] != 'review' or payload.get('calibration_schema') != 1 or
+                    payload.get('mode') != 'controls' or _sha(payload) != digest or
+                    type(payload.get('records')) is not list or len(payload['records']) > 8 or
+                    type(payload.get('control_count')) is not int or
+                    not len(payload['records']) <= payload['control_count'] <= 8 or
+                    not _digest(payload.get('manifest_sha256')) or not _digest(payload.get('controls_sha256'))):
+                raise ValueError('calibration review integrity check failed')
+            preparation_id = payload.get('preparation_id')
+            preparation = events.get(preparation_id)
+            if (preparation is None or preparation['kind'] != 'observation' or
+                    preparation['payload'].get('mode') != 'prepared' or
+                    preparation['payload'].get('ticket_ref') != payload.get('ticket_ref')):
+                raise ValueError('calibration preparation linkage mismatch')
+            dependencies, seen = [preparation_id], set()
+            for row in payload['records']:
+                if (type(row) is not dict or type(row.get('id')) is not str or row['id'] in seen or
+                        row.get('status') not in ('REPLAY_MATCH', 'REPLAY_MISMATCH', 'EXECUTION_ERROR', 'LATE_RESULT')):
+                    raise ValueError('invalid indexed calibration row')
+                seen.add(row['id'])
+                execution_id = row.get('execution_event_id')
+                if execution_id is None:
+                    if row['status'] != 'EXECUTION_ERROR':
+                        raise ValueError('calibration row lacks an execution')
+                    continue
+                execution = events.get(execution_id)
+                if execution is None or execution_id not in executions:
+                    raise ValueError('calibration execution index linkage is missing')
+                recorded = execution['payload']
+                receipt = recorded.get('receipt', {})
+                if (execution['kind'] != 'experiment' or _sha(recorded) != executions[execution_id] or
+                        recorded.get('execution_schema') != 1 or recorded.get('operation_id') != row.get('operation_id') or
+                        recorded.get('receipt_sha256') != row.get('receipt_sha256') or
+                        _sha(receipt) != row.get('receipt_sha256') or
+                        any(receipt.get(key) != row.get(key) for key in
+                            ('inputs_sha256', 'result_sha256', 'operation_version')) or
+                        preparation_id not in execution['dependencies']):
+                    raise ValueError('calibration execution request/receipt linkage mismatch')
+                dependencies.append(execution_id)
+            if event['dependencies'] != list(dict.fromkeys(dependencies)):
+                raise ValueError('calibration dependency chain mismatch')
+            result[event_id] = event
+        return result
 
     def plan_coverage(self, plan_id: str) -> dict:
         """Query actual recorded pages for one exact plan, excluding invalidation.

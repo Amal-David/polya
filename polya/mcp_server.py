@@ -72,7 +72,7 @@ class Server:
             if name == 'puzzle.run':
                 from .catalog import REGISTRY
                 operation = REGISTRY[data['operation_id']]
-                status = data['result'].get('status')
+                status = data['result'].get('execution_status', data['result'].get('status'))
                 if status in operation.execution_error_statuses:
                     execution_error = {
                         'code': status,
