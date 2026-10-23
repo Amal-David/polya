@@ -1,5 +1,9 @@
 # Agent workflows: compose, preflight, execute, challenge
 
+For the full evidence-to-continuation path, start with the
+[complete agent workflow](workflow.md). This guide focuses on typed compound plans
+and the integration fixtures that originally exercised them.
+
 This increment fixes two interface defects and connects existing operations into
 complete crypto-puzzle investigations. It does not claim unknown-key recovery,
 learned mechanism discovery, a new open-puzzle solution, or measured LLM benefit.
@@ -135,16 +139,25 @@ false discoveries separately. Check source-to-output consequences with an
 independent producer or evidence unused when selecting the mechanism. Correct
 formal execution and correct interpretation are different axes.
 
-## Next implementation priorities
+## Available evidence tools and remaining studies
 
-1. Evidence-linked casepacks with source hashes and distinct known/unknown stages.
-2. A real unknown-key specialist backend, evaluated against using that backend
-   directly, not merely another verifier for manually supplied keys.
-3. Candidate-mechanism proposal/ranking evaluated on hidden recipes and unrelated
-   series. Avoid converting post-hoc clue stories into probabilities.
-4. Opt-in artifact/result handles to avoid retransmitting large inputs on every
-   MCP page; retain explicit lifetime/ownership and full verifiable originals.
+Evidence-linked casepacks and local artifact handles are implemented:
+`casepack.inspect` checks supplied hashes and evidence consistency,
+`casepack.replay` checks bound controls, and `Workspace` stores original bytes
+under content handles. `Ledger` accounts for receipt-linked pages. Use the
+[continuation workflow](continuation.md) to bind the inspected request, preserve
+missing evidence and resume through caller-owned state. The remote MCP service
+continues to be stateless.
 
-The current patch supplies composability and repair affordances, not these later
-capabilities. Python 3.15, Jacobian's separate runtime, the finite search ledger,
-and the existing native-kernel experiment remain intact.
+`hypotheses.compare` and `experiment.rank_tests` compare supplied assumption sets
+and predicted disagreements. They neither generate an intended mechanism nor
+acquire an external observation. The bounded periodic classical-cipher search
+also exists; evaluations against established specialist engines and genuinely
+hidden recipe families remain separate studies.
+
+The [matched benchmark harness](../guides/agent-benchmark.md) prepares ordinary
+coding, direct-primitive and composed-workflow conditions. Deterministic fixtures
+and operation timings do not establish measured LLM benefit. A true model run
+requires saved external execution records and full-session budgets, including
+council overhead. Avoid converting post-hoc clue stories or caller weights into
+empirical probabilities.

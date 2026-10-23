@@ -1,7 +1,8 @@
 # Investigating puzzles with Polya
 
 This guide is for using Polya on a puzzle. [AGENTS.md](../../AGENTS.md) governs
-changes to the repository.
+changes to the repository. The [complete workflow](workflow.md) connects these
+principles to discovery, model admission, continuation and matched evaluation.
 
 ## The loop
 
@@ -60,6 +61,29 @@ parameter recovery, diagnostic failure, or new frontier result.
 Include a known positive, meaningful negatives, malformed inputs and budget cases.
 Use an independent evaluator, exhaustive small cases or a separate implementation.
 For interpretation claims, use held-out evidence or a different extraction route.
+
+### Choose a test that can change the investigation
+
+Before a call, state which supported alternatives it separates and what each
+outcome would change. `hypotheses.compare` can expose differing forced predictions
+within explicit assumption sets. `experiment.rank_tests` ranks the supplied
+predictions by weighted pair separation and caller-estimated cost. Missing
+predictions earn no information credit. Equal weights mean equal supplied weight,
+not equal empirical probability; correlated copies can bias the ranking.
+
+Preserve an unpredicted outcome as missing. A test that produces the same result
+under every active interpretation cannot distinguish them, even when its output
+is exact. If no test has a known disagreement, the operation reports
+`NO_DISCRIMINATING_TEST`; the next need is a better prediction or additional source
+evidence. Ranking acquires no observation and eliminates no hypothesis.
+
+Run the [synthetic assumption-choice example](../../examples/assumption_choice_demo.py)
+with `python -m examples.assumption_choice_demo`. It preserves two equally weighted
+counting conventions and ranks a unit-label observation above a repeated count.
+Its optional council coordination fixture records all eight callback invocations
+and wall time while explicitly reporting zero model calls and unmeasured tokens.
+An actual council evaluation must include every model call, repair, timeout and
+token in the same whole-session budget as the baseline.
 
 ### Bind checks to the submitted experiment
 

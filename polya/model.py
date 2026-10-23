@@ -6,7 +6,7 @@ Symbolic word candidates should be mapped explicitly to integers by the caller.
 from __future__ import annotations
 
 from typing import Literal
-from pydantic import Field, JsonValue, model_validator
+from pydantic import Field, JsonValue, ValidationError, model_validator
 from .automata import StrictModel, Machine, simulate
 
 LIMIT=10**12
@@ -14,9 +14,9 @@ LIMIT=10**12
 
 class Variable(StrictModel):
     kind: Literal['int','bool','bitvec']='int'
-    lower: int | None=None
-    upper: int | None=None
-    values: list[int] | None=Field(default=None,max_length=10000)
+    lower: int | None=Field(default=None,description='Inclusive integer lower bound; supply both bounds OR values. Bounds are caller assumptions, never inferred.')
+    upper: int | None=Field(default=None,description='Inclusive integer upper bound; supply both bounds OR values. Each integer bound must be within +/-10^12.')
+    values: list[int] | None=Field(default=None,max_length=10000,description='Explicit distinct integer domain instead of bounds; [] is an empty domain, not an unknown domain.')
     width: int | None=Field(default=None,ge=1,le=64)
 
     @model_validator(mode='after')
@@ -86,9 +86,16 @@ class PuzzleModel(StrictModel):
             if len(set(self.answer_variables))!=len(self.answer_variables) or not set(self.answer_variables)<=set(self.variables):
                 raise ValueError('answer_variables must be distinct declared variables')
         nodes=[0]
-        for c in self.constraints:
-            if expr_sort(c.expr,self.variables,nodes=nodes)!='bool':
-                raise ValueError(f'constraint {c.id!r} must be boolean')
+        errors=[]
+        for index,c in enumerate(self.constraints):
+            try:
+                if expr_sort(c.expr,self.variables,nodes=nodes)!='bool':
+                    raise ValueError('constraint must be boolean')
+            except ValueError as exc:
+                errors.append({'type':'value_error','loc':('constraints',index,'expr'),
+                               'input':c.expr,'ctx':{'error':ValueError(f'constraint {c.id!r}: {exc}')}})
+        if errors:
+            raise ValidationError.from_exception_data(type(self).__name__,errors)
         return self
 
     def active(self,assumptions: list[str]):

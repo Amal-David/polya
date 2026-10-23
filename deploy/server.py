@@ -32,6 +32,29 @@ from polya.mcp_server import MAX_LINE, TOOLS, Server
 LOGGER = logging.getLogger('uvicorn.error')
 
 
+class SDKLogMetadata(logging.Filter):
+    """Keep known MCP application loggers from echoing request data."""
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = json.dumps({'event': 'polya.sdk_event', 'component': record.name,
+                                 'level': record.levelname}, separators=(',', ':'))
+        record.args = ()
+        record.exc_info = None
+        record.exc_text = None
+        record.stack_info = None
+        return True
+
+
+def configure_sdk_logging() -> None:
+    # Explicit SDK components in the pinned deployment dependency. Filters attach
+    # before handlers, covering warning/error paths as well as debug messages.
+    for name in ('mcp.server.lowlevel.server', 'mcp.server.streamable_http',
+                 'mcp.server.streamable_http_manager', 'mcp.server.transport_security',
+                 'mcp.server.session', 'mcp.shared.session', 'mcp.server.exception_handler'):
+        logger = logging.getLogger(name)
+        if not any(isinstance(item, SDKLogMetadata) for item in logger.filters):
+            logger.addFilter(SDKLogMetadata())
+
+
 def deployed_revision() -> str | None:
     """Expose only a complete Git object ID, never arbitrary environment text."""
     revision = os.environ.get('RENDER_GIT_COMMIT', '')
@@ -74,6 +97,7 @@ class Authentication:
 
 
 def create_app(token: str, public_url: str) -> ASGIApp:
+    configure_sdk_logging()
     host = urlsplit(public_url).netloc
     if not host:
         raise ValueError('POLYA_PUBLIC_BASE_URL must include a host')
@@ -101,6 +125,17 @@ def create_app(token: str, public_url: str) -> ASGIApp:
         execution_id = uuid4().hex
         started = monotonic()
         outcome = 'internal_error'
+        worker_started = worker_finished = None
+        serialization_ms = None
+
+        def execute():
+            nonlocal worker_started, worker_finished
+            worker_started = monotonic()
+            try:
+                return handler.handle({'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
+                    'params': {'name': name, 'arguments': arguments}})
+            finally:
+                worker_finished = monotonic()
 
         def failure(message: str) -> CallToolResult:
             return CallToolResult.model_validate({
@@ -112,18 +147,16 @@ def create_app(token: str, public_url: str) -> ASGIApp:
             })
 
         try:
-            response = await anyio.to_thread.run_sync(
-                handler.handle,
-                {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
-                 'params': {'name': name, 'arguments': arguments}},
-                limiter=limiter,
-            )
+            response = await anyio.to_thread.run_sync(execute, limiter=limiter)
             if 'error' in response:
                 outcome = 'protocol_error'
                 return failure('Invalid tool call; inspect the advertised tool schema.')
             result = response['result']
             result['_meta'] = {'polya/execution_id': execution_id}
-            if len(json.dumps(result, ensure_ascii=True, allow_nan=False)) > 2_200_000:
+            serialization_started = monotonic()
+            encoded_size = len(json.dumps(result, ensure_ascii=True, allow_nan=False))
+            serialization_ms = (monotonic() - serialization_started) * 1000
+            if encoded_size > 2_200_000:
                 outcome = 'output_limit'
                 return failure('Output exceeds transport limit; reduce the operation scope')
             validated = CallToolResult.model_validate(result)
@@ -137,6 +170,9 @@ def create_app(token: str, public_url: str) -> ASGIApp:
                 'tool': name if name in ('puzzle.find', 'puzzle.run') else None,
                 'operation_id': operation_id, 'outcome': outcome,
                 'elapsed_ms': round((monotonic() - started) * 1000, 3),
+                'queue_ms': round((worker_started - started) * 1000, 3) if worker_started is not None else None,
+                'execution_ms': round((worker_finished - worker_started) * 1000, 3) if worker_finished is not None else None,
+                'serialization_ms': round(serialization_ms, 3) if serialization_ms is not None else None,
                 'version': __version__, 'revision': deployed_revision(),
             }, allow_nan=False, separators=(',', ':')))
 

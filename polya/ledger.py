@@ -31,7 +31,7 @@ def _digest(value) -> bool:
 
 
 def _validate_receipt(operation_id: str, inputs: dict, envelope: dict,
-                      identity: dict, key: str) -> dict:
+                      identity: dict, key: str, *, expected_implementation: str | None = None) -> dict:
     """Check the locally obtained envelope before discarding its large result.
 
     These are consistency checks, not authentication. The public entry point
@@ -62,9 +62,9 @@ def _validate_receipt(operation_id: str, inputs: dict, envelope: dict,
         final_fingerprint=receipt['implementation_fingerprint'])
     if canonical_json(receipt) != canonical_json(expected):
         raise ValueError('execution receipt does not match the executed request/result')
-    if not observations['changed'] and (receipt['implementation_fingerprint'] !=
-                                         receipt['preparation_implementation_fingerprint']):
-        raise ValueError('execution receipt implementation changed without a runtime change')
+    expected_final = catalog.implementation_fingerprint() if expected_implementation is None else expected_implementation
+    if receipt['implementation_fingerprint'] != expected_final:
+        raise ValueError('execution receipt implementation does not match the observed runtime')
     if op.result:
         op.result.model_validate(envelope['result'])
     return receipt

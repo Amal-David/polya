@@ -548,7 +548,7 @@ def example_plan() -> dict:
 def operations(make):
     return [make('mechanism.plan_scan', 'Execute typed artifact-to-target plans',
                  'Compose PNGs, spirals, classical ciphers, radix and strict codec conversions with exact targets. Use mechanism.plan_inspect before searching.',
-                 ScanInput, scan, 'typed artifact png symbols bits bytes candidate target plan resume provenance investigation',
+                 ScanInput, scan, 'typed artifact png symbols bits bytes candidate target plan resume provenance investigation coverage paging',
                  'Exact target checks under a supplied finite grammar; interruption and invalid inputs never imply a negative puzzle result.',
                  '4 sources,8 nodes,64 alternatives/node,1M recipes,512 trials,16 matches; 65536 bit/symbol units,16384 candidate bytes; time/work/cache/output bounds.',
                  cacheable=False, example={'plan': example_plan()}, status=str, plan_id=str, recipe_count=int, start=int, stop=int,
@@ -557,7 +557,7 @@ def operations(make):
                  kernel_calls=int, cache_hits=int, work_units=int, scope=str),
             make('mechanism.plan_inspect', 'Preflight a typed investigation plan',
                  'Check source representations, references, constants and search size without executing kernels; return repair diagnostics.',
-                 InspectInput, inspect_plan, 'plan preflight inspect validate repair types compose workflow grammar budget',
+                 InspectInput, inspect_plan, 'plan preflight inspect validate repair types compose workflow grammar budget coverage resume paging',
                  'Validation of the supplied grammar only. valid=false is a diagnosis, not a rejected puzzle hypothesis.',
                  'Same plan admission limits; at most 16 diagnostics. No search or target calibration.',
                  cacheable=False, example={'plan': example_plan()}, valid=bool, plan_id=str | None,

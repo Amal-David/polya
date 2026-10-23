@@ -47,7 +47,7 @@ def test_comparison_backend_failures_flag_mcp_without_losing_receipts(monkeypatc
                for case in result['cases'].values())
     encoded = json.dumps(result, ensure_ascii=True, sort_keys=True, separators=(',', ':'), allow_nan=False)
     assert data['receipt']['result_sha256'] == hashlib.sha256(encoded.encode()).hexdigest()
-    assert data['receipt']['operation_version'] == '2'
+    assert data['receipt']['operation_version'] == '3'
     if version == '2025-06-18':
         assert response['structuredContent'] == payload
 
@@ -123,7 +123,7 @@ def test_shared_budget_unknown_is_partial_not_an_execution_error():
 
 def test_contract_declares_comparison_failure_and_malformed_input_still_rejects():
     contract = find(operation_id='hypotheses.compare')
-    assert contract['version'] == '2'
+    assert contract['version'] == '3'
     assert contract['execution_error_statuses'] == ['EXECUTION_ERROR']
     assert 'failed_cases' in contract['output_schema']['required']
     with pytest.raises(ValueError):
