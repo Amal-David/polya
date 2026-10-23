@@ -49,3 +49,4 @@ include = ["polya*", "puzzleops"]
 
 [tool.setuptools.package-data]
 polya = ["jacobian_pin.json"]
+"polya.methods" = ["data/*.json", "data/*.md"]

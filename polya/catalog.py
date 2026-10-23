@@ -230,7 +230,8 @@ from .casepacks import operations as casepack_ops
 from .experiment_design import operations as experiment_ops
 from .classical_search import operations as classical_ops
 from .utility_eval import operations as utility_ops
-for builder in (council_ops, casepack_ops, experiment_ops, classical_ops, utility_ops):
+from .method_ops import operations as method_ops
+for builder in (council_ops, casepack_ops, experiment_ops, classical_ops, utility_ops, method_ops):
     OPS.extend(builder(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 
@@ -326,8 +327,18 @@ def _compute_implementation_fingerprint() -> str:
 
 # Freeze source bytes now, not after a later on-disk edit. Native discovery is
 # deferred until an experiment requests a receipt.
-_SOURCE_SNAPSHOT = b"".join(path.name.encode("utf8") + b"\0" + path.read_bytes()
-                            for path in sorted(Path(__file__).parent.glob("*.py")))
+def _implementation_source_snapshot(root: Path) -> bytes:
+    paths = set(root.rglob('*.py'))
+    paths.update(path for path in (root / 'methods' / 'data').glob('*') if path.is_file())
+    chunks = []
+    for path in sorted(paths):
+        raw = path.read_bytes()
+        chunks.append(path.relative_to(root).as_posix().encode('utf8') + b'\0' +
+                      len(raw).to_bytes(8, 'big') + raw)
+    return b''.join(chunks)
+
+
+_SOURCE_SNAPSHOT = _implementation_source_snapshot(Path(__file__).parent)
 
 
 def _execution_pin_fields(value: dict) -> dict:
