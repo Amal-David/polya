@@ -19,6 +19,7 @@ from mcp.server.lowlevel import Server as MCPServer
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, Tool
+from mcp.shared import session as sdk_session
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -44,7 +45,18 @@ class SDKLogMetadata(logging.Filter):
         return True
 
 
+class RootSDKLogMetadata(SDKLogMetadata):
+    """The pinned shared-session module uses direct root logging calls."""
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.pathname == sdk_session.__file__:
+            return super().filter(record)
+        return True
+
+
 def configure_sdk_logging() -> None:
+    root_logger = logging.getLogger()
+    if not any(isinstance(item, RootSDKLogMetadata) for item in root_logger.filters):
+        root_logger.addFilter(RootSDKLogMetadata())
     # Explicit SDK components in the pinned deployment dependency. Filters attach
     # before handlers, covering warning/error paths as well as debug messages.
     for name in ('mcp.server.lowlevel.server', 'mcp.server.streamable_http',

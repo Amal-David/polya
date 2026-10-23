@@ -162,10 +162,12 @@ def test_all_captured_application_logs_omit_request_secrets(client, caplog):
         (private, {}),
     ]:
         rpc(client, 'tools/call', {'name': tool, 'arguments': arguments})
+    rpc(client, 'tools/call', {'name': 'puzzle.run', 'arguments': private})
     client.post('/mcp', headers={**HEADERS, 'Host': private}, json={})
     client.post('/mcp', headers={**HEADERS, 'Origin': 'https://' + private}, json={})
+    from mcp.shared import session as sdk_session
     records = [record for record in caplog.records
-               if record.name.startswith(('mcp.', 'uvicorn.'))]
+               if record.name.startswith(('mcp.', 'uvicorn.')) or record.pathname == sdk_session.__file__]
     assert records
     for record in records:
         assert private not in record.getMessage()
@@ -207,3 +209,16 @@ def test_worker_concurrency_stays_one_and_queue_metrics_are_separate(client, cap
         assert event['queue_ms'] >= 0 and event['execution_ms'] >= 0
         assert event['serialization_ms'] >= 0
         assert event['elapsed_ms'] + 0.01 >= event['queue_ms'] + event['execution_ms']
+
+
+def test_sdk_root_filter_preserves_unrelated_root_application_logs(client, caplog):
+    from deploy.server import RootSDKLogMetadata
+    from mcp.shared import session as sdk_session
+    caplog.set_level(logging.DEBUG)
+    logging.warning('Unrelated application diagnostic remains visible')
+    assert any(record.getMessage() == 'Unrelated application diagnostic remains visible'
+               for record in caplog.records)
+    record = logging.LogRecord('root', logging.WARNING, sdk_session.__file__, 1,
+                               'synthetic-sensitive-argument', (), None)
+    assert RootSDKLogMetadata().filter(record)
+    assert 'synthetic-sensitive-argument' not in record.getMessage()

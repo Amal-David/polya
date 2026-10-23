@@ -78,6 +78,11 @@ metadata, including warning/error/debug paths that otherwise echo caller-selecte
 names or headers. Regression tests inspect every captured application record for
 synthetic secrets across these paths. This does not certify future SDK loggers,
 HTTP client logs or Render's request logging. Access logging remains disabled.
+These filters are process-wide for the standalone HTTP adapter, including direct
+root-log calls from the pinned shared-session module. SDK exception detail is
+removed. Embedding the adapter alongside other MCP applications applies the same
+filtering to their shared SDK components; unrelated root application logs remain
+unchanged.
 
 For bounded local transport diagnostics, run
 `python scripts/benchmark_transport.py --repeats 20 --concurrency 3`.
