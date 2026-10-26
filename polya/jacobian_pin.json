@@ -2,7 +2,7 @@
   "execution": "isolated-stdio-mcp",
   "latest_available_version": "0.23.0",
   "latest_available_wheel_sha256": "72fe5a9210db17e18e756a25cb94473b2c188bba591ad8ab8d7dfff9531e05f8",
-  "latest_requires_python": ">=3.12,<3.14",
+  "latest_requires_python": "<3.14,>=3.12",
   "license": "MIT",
   "release_source_sha": "bad9b899715992bd2a72ed79e726a7deb89e9395",
   "requires_python": ">=3.12,<3.14",
