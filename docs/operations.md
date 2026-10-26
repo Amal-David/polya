@@ -1,6 +1,6 @@
 # Operation reference
 
-Polya registers 55 operations in 24 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
+Polya registers 56 operations in 24 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
 
 Families: [artifact](#artifact), [automata](#automata), [backends](#backends), [bits](#bits), [bytes](#bytes), [candidate](#candidate), [casepack](#casepack), [cipher](#cipher), [constraints](#constraints), [council](#council), [crypto](#crypto), [evidence](#evidence), [experiment](#experiment), [grid](#grid), [hypotheses](#hypotheses), [jacobian](#jacobian), [mechanism](#mechanism), [method](#method), [pattern](#pattern), [specialist](#specialist), [symbolic](#symbolic), [text](#text), [utility](#utility), [verify](#verify).
 
@@ -995,6 +995,32 @@ Optional inputs:
 Output fields: `probability_numerator`, `probability_denominator`, `probability`, `trials`, `expected_padding_hits`, `probability_scientific`, `expected_padding_hits_scientific`, `float_underflow`, `assumption`, `evidence_kind`.
 
 ## experiment
+
+### `experiment.from_comparison`
+
+**Turn compared hypotheses into observable tests.** Version 1; cacheable: yes.
+
+Bind a hypotheses.compare envelope to caller-specified observation sources and costs; produce typed predictions for experiment.rank_tests.
+
+Postcondition: Receipt and witness consistency for conditional test inputs, not authenticated execution, a new forced-value proof or acquired evidence.
+
+Limits:
+
+- Comparison contract version 3 only
+- 2-8 case IDs of 1-64 characters, 128 observable variables, existing 1 MB input/output admission bounds
+- no solver work.
+
+Required inputs:
+
+- `comparison_inputs`: CompareInput
+- `comparison`: ComparisonEnvelope
+- `observables`: array of Observable
+
+Optional inputs:
+
+- `criterion`: one of `"separation_per_cost"`, `"separation"`, default `"separation_per_cost"`
+
+Output fields: `rank_inputs`, `comparison_identity`, `case_evidence`, `observation_acquired`, `outcome_encoding`, `scope`.
 
 ### `experiment.rank_tests`
 

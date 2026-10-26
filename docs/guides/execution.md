@@ -115,6 +115,17 @@ cannot be imported. The ledger stores receipt and hash links and compact outcome
 not plans, source bytes, candidate bytes or target vectors. Keep the original plan
 and returned envelope when you need to reproduce a result.
 
+### Durable requests and responses
+
+`Workspace.run_recorded(operation_id, inputs, dependencies=...)` adds local
+content-addressed storage for the full normalized request and catalog envelope.
+Reopen the workspace and use `load_recorded(event_id)` to inspect them, or
+`replay_recorded(event_id)` to execute afresh under a compatible version/runtime.
+The execution index binds the artifact references; dependency retractions remain
+visible and block replay. See [recorded experiments](recorded-experiments.md) for
+restart examples, publication guarantees, size limits and comparison-to-test
+composition. Exact result-hash agreement is not independent reproduction.
+
 ## Evaluation
 
 `scripts/evaluate_agents.py` generates cases and scores externally produced

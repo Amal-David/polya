@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — recorded experiments and comparison-derived tests
+
+- Add host-side `Workspace.run_recorded`, `load_recorded` and `replay_recorded`
+  helpers for durable normalized requests and full responses linked to actual
+  ledger executions. Replays execute afresh, preserve dependency retractions and
+  report exact result equality without claiming independent proof.
+- Add `experiment.from_comparison` to turn receipt-bound conditional forced
+  values into typed predictions for `experiment.rank_tests`, with explicit
+  observable mappings and caller costs. Unknown and failed cases remain visible;
+  no observation is acquired and no hypothesis is silently eliminated.
+- Keep existing operation versions and package version unchanged pending a
+  release. This increment does not add learned retrieval, a model runner, a new
+  hypothesis-budget policy or a measured agent-solving gain.
+
 ## Unreleased — source-backed method selection
 
 - Add `method.retrieve` across Python, CLI and MCP, with six source-linked original

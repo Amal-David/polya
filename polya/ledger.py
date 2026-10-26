@@ -9,6 +9,7 @@ from math import prod
 import re
 import sqlite3
 import time
+from typing import Callable
 import uuid
 from . import catalog
 from .catalog import canonical_json
@@ -259,6 +260,17 @@ class Ledger:
         or interrupted Python call records nothing; a returned partial page
         records only its terminal trials. Restart uses the same database path.
         """
+        return self._run(operation_id, inputs, dependencies=dependencies)
+
+    def _run(self, operation_id: str, inputs: dict, *,
+             dependencies: list[str] | None = None,
+             before_execute: Callable[[str, dict, dict], None] | None = None,
+             record_artifacts: Callable[[str, dict, dict], dict] | None = None) -> dict:
+        """Workspace hooks run before execution and before publishing its event.
+
+        Only the host-owned Workspace uses these private hooks. The public
+        ``run`` path continues to retain compact receipts without artifact I/O.
+        """
         # Reject malformed dependencies and a corrupt/full ledger before doing
         # potentially expensive work; _append repeats these checks under lock.
         deps = [] if dependencies is None else dependencies
@@ -278,14 +290,49 @@ class Ledger:
         # Own the request snapshot. Caller/kernel mutation cannot rewrite the
         # request whose hash is checked after execution.
         _, normalized, identity, key = catalog.prepare(operation_id, inputs)
+        normalized = loads(canonical_json(normalized))
+        if before_execute is not None:
+            before_execute(operation_id, normalized, identity)
         envelope = catalog.run(operation_id, loads(canonical_json(normalized)))
         receipt = _validate_receipt(operation_id, normalized, envelope, identity, key)
         page = (_page_summary(normalized, envelope['result'], receipt)
                 if operation_id == PLAN_OPERATION else None)
         payload = {'execution_schema': 1, 'operation_id': operation_id,
                    'receipt': receipt, 'receipt_sha256': _sha(receipt), 'page': page}
+        if record_artifacts is not None:
+            # Durable blobs precede publication of their internally indexed
+            # references. Failure may leave orphan blobs, never a partial event.
+            payload['recorded_run'] = record_artifacts(operation_id, normalized, envelope)
         event_id = self._append('experiment', payload, dependencies=list(deps), executed=True)
         return {**envelope, 'ledger_event_id': event_id}
+
+    def _execution_event(self, event_id: str) -> dict:
+        """Read a locally indexed execution and its review state consistently."""
+        if type(event_id) is not str or re.fullmatch(r'[0-9a-f]{32}', event_id) is None:
+            raise ValueError('expected a local ledger event ID')
+        owned_transaction = not self.connection.in_transaction
+        try:
+            if owned_transaction:
+                self.connection.execute('BEGIN')
+            events = {event['id']: event for event in self.snapshot()['events']}
+            indexed = self.connection.execute(
+                'SELECT payload_sha256 FROM execution_events WHERE event_id=?',
+                (event_id,)).fetchone()
+            if owned_transaction:
+                self.connection.commit()
+        except Exception:
+            if owned_transaction:
+                self.connection.rollback()
+            raise
+        event = events.get(event_id)
+        if event is None or indexed is None:
+            raise ValueError('event is not an internally recorded execution')
+        payload = event['payload']
+        if (event['kind'] != 'experiment' or payload.get('execution_schema') != 1 or
+                _sha(payload) != indexed[0] or
+                _sha(payload.get('receipt')) != payload.get('receipt_sha256')):
+            raise ValueError('execution index/receipt integrity check failed')
+        return event
 
     def _record_calibration_review(self, *, ticket_ref: str, manifest_sha256: str,
                                    controls_sha256: str, report_ref: str,

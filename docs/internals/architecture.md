@@ -27,7 +27,10 @@ required workflow.
    See [plans](../guides/plans.md).
 7. **Optional state.** A local SQLite exact-request cache (`Session`) and an
    append-only ledger that links receipts to coverage and tracks retractions. Both
-   are separate from stateless operations. See [execution](../guides/execution.md).
+   are separate from stateless operations. A host-owned `Workspace` can retain
+   complete requests and responses by content hash and replay recorded executions.
+   See [execution](../guides/execution.md) and
+   [recorded experiments](../guides/recorded-experiments.md).
 
 ## Trust boundaries
 

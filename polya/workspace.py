@@ -12,6 +12,7 @@ import re
 import sqlite3
 
 from .casepacks import MAX_STORED_ARTIFACT as MAX_ARTIFACT, encoded, inspect_case
+from .jsonio import loads
 
 HANDLE = re.compile(r'^sha256:([a-f0-9]{64})$')
 MAX_TOTAL = 32_000_000
@@ -91,6 +92,129 @@ class Workspace:
         from .ledger import Ledger
         with Ledger(self.root / 'history.sqlite') as ledger:
             return ledger.run('mechanism.plan_scan', {'plan': self.hydrate_plan(plan), **limits})
+
+    def run_recorded(self, operation_id: str, inputs: dict, *,
+                     dependencies: list[str] | None = None) -> dict:
+        """Execute uncached and retain the exact canonical request and envelope.
+
+        Like Ledger.run, execution uses an owned canonical JSON snapshot, whose
+        object keys are sorted. Both stored blobs are bounded to one megabyte;
+        the response bound includes the receipt. Returned partial/negative
+        results retain their scope. Raised or interrupted calls publish no event.
+        """
+        return self._run_recorded(operation_id, inputs, dependencies=dependencies)
+
+    def _run_recorded(self, operation_id: str, inputs: dict, *,
+                      dependencies: list[str] | None = None,
+                      replay_of: dict | None = None) -> dict:
+        from .ledger import Ledger
+        references = {}
+
+        def before_execute(op_id: str, normalized: dict, identity: dict) -> None:
+            request = encoded({'operation_id': op_id, 'inputs': normalized})
+            if len(request) > MAX_ARTIFACT:
+                raise ValueError('recorded request exceeds the one megabyte artifact bound')
+            if replay_of is not None:
+                previous = replay_of['envelope']['receipt']
+                if (op_id != replay_of['operation_id'] or
+                        encoded(normalized) != encoded(replay_of['inputs']) or
+                        identity['operation_version'] != previous['operation_version'] or
+                        identity['implementation'] != previous['implementation_fingerprint'] or
+                        identity['runtime_mode'] != previous['runtime_observations']['after']):
+                    raise ValueError('recorded execution is incompatible with the current request/version/runtime')
+            sha = hashlib.sha256(request).hexdigest()
+            present = self.connection.execute('SELECT 1 FROM artifacts WHERE sha=?', (sha,)).fetchone()
+            if present is not None:
+                self.get('sha256:' + sha)
+            count, size = self.connection.execute(
+                'SELECT count(*),coalesce(sum(length(body)),0) FROM artifacts').fetchone()
+            # Reject an already exhausted store before running a potentially
+            # expensive operation. Final result size and concurrent writes are
+            # checked by put; at least one response slot must be available.
+            new_request = int(present is None)
+            if count + new_request + 1 > 512 or size + new_request * len(request) >= MAX_TOTAL:
+                raise ValueError('workspace capacity exceeded for a recorded request and response')
+
+        def record_artifacts(op_id: str, normalized: dict, envelope: dict) -> dict:
+            if set(envelope) != {'operation_id', 'result', 'receipt'}:
+                raise ValueError('recorded execution must return the complete uncached catalog envelope')
+            request = encoded({'operation_id': op_id, 'inputs': normalized})
+            response = encoded(envelope)
+            if len(response) > MAX_ARTIFACT:
+                raise ValueError('recorded response including its receipt exceeds the one megabyte artifact bound')
+            references.update(schema=1, request_ref=self.put(request),
+                              response_ref=self.put(response),
+                              replay_of=None if replay_of is None else replay_of['ledger_event_id'])
+            return dict(references)
+
+        with Ledger(self.root / 'history.sqlite') as ledger:
+            envelope = ledger._run(operation_id, inputs, dependencies=dependencies,
+                                   before_execute=before_execute,
+                                   record_artifacts=record_artifacts)
+        return {**envelope, 'request_ref': references['request_ref'],
+                'response_ref': references['response_ref']}
+
+    def load_recorded(self, event_id: str) -> dict:
+        """Load exact archived bytes and current review state, without executing.
+
+        Historical records remain inspectable after upgrades. Content hashes and
+        the internal execution index detect inconsistency, not a database owner
+        rewriting history. Caller-appended receipt claims cannot be loaded here.
+        """
+        from .ledger import Ledger
+        with Ledger(self.root / 'history.sqlite') as ledger:
+            event = ledger._execution_event(event_id)
+        payload = event['payload']
+        references = payload.get('recorded_run')
+        if (type(references) is not dict or
+                set(references) != {'schema', 'request_ref', 'response_ref', 'replay_of'} or
+                type(references['schema']) is not int or references['schema'] != 1):
+            raise ValueError('execution has no supported durable request/response record')
+        replay_of = references['replay_of']
+        if replay_of is not None and (type(replay_of) is not str or replay_of not in event['dependencies']):
+            raise ValueError('recorded replay dependency is inconsistent')
+        request = loads(self.get(references['request_ref']))
+        envelope = loads(self.get(references['response_ref']))
+        if (type(request) is not dict or set(request) != {'operation_id', 'inputs'} or
+                type(request['inputs']) is not dict or type(envelope) is not dict or
+                set(envelope) != {'operation_id', 'receipt', 'result'} or
+                type(envelope['result']) is not dict or
+                request['operation_id'] != payload['operation_id'] or
+                envelope['operation_id'] != payload['operation_id'] or
+                encoded(envelope['receipt']) != encoded(payload['receipt'])):
+            raise ValueError('recorded request/response does not match its execution')
+        receipt = payload['receipt']
+        if (hashlib.sha256(encoded(request['inputs'])).hexdigest() != receipt['inputs_sha256'] or
+                hashlib.sha256(encoded(envelope['result'])).hexdigest() != receipt['result_sha256']):
+            raise ValueError('recorded request/result receipt hashes do not match')
+        return {'ledger_event_id': event_id, 'operation_id': request['operation_id'],
+                'inputs': request['inputs'], 'envelope': envelope,
+                'request_ref': references['request_ref'], 'response_ref': references['response_ref'],
+                'dependencies': event['dependencies'], 'review_status': event['review_status'],
+                'replay_of': replay_of, 'independently_reproduced': False,
+                'scope': 'Exact locally recorded request and response; source labels and stored history are not authenticated. Retractions request review rather than refuting the encoded result.'}
+
+    def replay_recorded(self, event_id: str) -> dict:
+        """Rerun the saved request uncached under a compatible version/runtime.
+
+        A fresh indexed execution depends on the original event, carrying its
+        invalidation chain. Comparison uses canonical result hashes, including
+        elapsed statistics; disagreement need not be a semantic disagreement.
+        Same-implementation reruns never establish independent reproduction.
+        """
+        previous = self.load_recorded(event_id)
+        if previous['review_status'] != 'RECORDED':
+            raise ValueError('retracted or review-required executions cannot be replayed')
+        envelope = self._run_recorded(previous['operation_id'], previous['inputs'],
+                                      dependencies=[event_id], replay_of=previous)
+        matches = (envelope['receipt']['result_sha256'] ==
+                   previous['envelope']['receipt']['result_sha256'])
+        return {**envelope, 'replay': {
+            'original_event_id': event_id, 'status': 'MATCH' if matches else 'MISMATCH',
+            'original_result_sha256': previous['envelope']['receipt']['result_sha256'],
+            'result_sha256': envelope['receipt']['result_sha256'],
+            'independently_reproduced': False,
+            'scope': 'Fresh uncached execution; comparison covers exact canonical result content, including timing/statistics. A mismatch is not by itself a semantic failure, and a match is not independent reproduction or proof of puzzle interpretation.'}}
 
     def handoff(self, case: dict, plan_ids: list[str]) -> dict:
         """Compact caller claims plus actual recorded coverage; no fabricated summaries."""
