@@ -5,6 +5,7 @@ Run each example from the repository root. Each prints a JSON report.
 | Example | Demonstrates | Run |
 | --- | --- | --- |
 | `structured_demo.py` | Word arithmetic, a nonogram, five-queens placement, temporal constraints, an ambiguous glyph compared with `hypotheses.compare`, a contradiction, and a local hidden-state machine. Needs the `z3` extra. | `python -m examples.structured_demo` |
+| `recorded_experiment_demo.py` | Save and reload a comparison, derive observable tests, rank them, and perform fresh recorded replays. Uses the reference solver and a temporary workspace; no new observation or model call. | `python -m examples.recorded_experiment_demo` |
 | `crypto_frontier_demo.py` | Three synthetic PNGs with withheld channel, bit, route, polarity and bit order, recovered through one `mechanism.plan_scan` call each, plus a published decryption control. Needs the `imaging` extra. | `python -m examples.crypto_frontier_demo` |
 | `cryptic_demo.py` | `mechanism.recipe_scan`, `text.symbol_map`, `bytes.from_radix` and `cipher.periodic_cribs` replaying published checkpoints from the [GSMG case files](cases/gsmg/README.md). | `python -m examples.cryptic_demo` |
 | `crypto_demo.py` | `candidate.expand`, `crypto.openssl_decrypt`, `verify.sha256` and a `Session` cache hit, with a padding-valid decoy that fails the exact check. | `python -m examples.crypto_demo` |

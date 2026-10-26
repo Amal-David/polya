@@ -74,6 +74,14 @@ The result neither acquires an observation nor chooses the correct interpretatio
 If equally supported conventions survive, retain them until evidence separates
 them.
 
+For a saved `hypotheses.compare` request and its full response, use
+`experiment.from_comparison` to build ranking inputs without manually transcribing
+forced values. Declare which model variable each obtainable observation measures,
+its question, source and cost. The adapter checks request/response consistency and
+preserves missing predictions; it does not authenticate an imported receipt or
+prove that the proposed observation matches the real clue. See
+[recorded experiments](../guides/recorded-experiments.md) for the complete flow.
+
 ```bash
 python -m examples.assumption_choice_demo
 python -m examples.assumption_choice_demo --measure-coordination-fixture
@@ -108,6 +116,13 @@ remote execution does not add local Ledger coverage. Exporting and restoring a
 portable artifact packet also does not recreate historical completed coverage.
 The HTTP adapter's random execution ID joins a saved response to a payload-free
 event; it does not replace the saved request or receipt.
+
+For general operations, `Workspace.run_recorded` saves the normalized request and
+full response alongside the ledger execution. `load_recorded` retrieves them after
+a restart, and `replay_recorded` performs another execution under matching
+implementation and operation versions. Both runs retain their own receipts and
+dependency history. An exact result comparison can differ because of timing or
+partial-search statistics; it is not a new correctness verdict.
 
 `UNKNOWN`, operational errors and incomplete enumeration do not reject a
 hypothesis. A verified SAT witness can remain useful while uniqueness or a later

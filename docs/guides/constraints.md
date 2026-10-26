@@ -58,6 +58,15 @@ The ten values of `auxiliary` do not create ten answers, because uniqueness is
 checked over `answer_variables` only. `hypotheses.compare` proposes an observation
 that would separate the cases; it does not acquire it.
 
+`experiment.from_comparison` accepts the exact comparison inputs and full
+envelope, plus observable variables with explicit source mappings and costs. Its
+`rank_inputs` compose directly into `experiment.rank_tests`. Established forced
+values retain typed labels; unresolved and non-SAT cases retain unknown
+predictions. The adapter checks consistency and supplied witnesses without
+rerunning the solver or acquiring evidence. See
+[recorded comparisons and next-test ranking](recorded-experiments.md#turn-a-comparison-into-observable-tests)
+for a complete example, including durable requests and ledger dependencies.
+
 ## Domains and assumptions
 
 Integer domains use inclusive bounds or explicit values, never both. An empty
