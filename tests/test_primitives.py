@@ -19,7 +19,7 @@ class PrimitiveTests(unittest.TestCase):
         for operation_id in REGISTRY:
             self.assertRegex(operation_id, r"^[a-z][a-z0-9]*\.[a-z][a-z0-9_]*$")
         self.assertTrue({'method.retrieve', 'symbolic.inspect', 'experiment.from_comparison'} <= REGISTRY.keys())
-        self.assertEqual(len(REGISTRY), 56)
+        self.assertEqual(len(REGISTRY), 57)
         self.assertTrue({"council.prepare", "council.prioritize", "casepack.inspect", "casepack.replay", "experiment.rank_tests", "cipher.periodic_search", "utility.compare_runs"} <= set(REGISTRY))
         self.assertTrue({'mechanism.plan_inspect', 'text.encode', 'bytes.decode_text'} <= REGISTRY.keys())
 

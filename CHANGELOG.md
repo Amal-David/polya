@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — bounded finite-trace explanations
+
+- Add `trace.explain` v1 with strict nonempty finite-trace/formula contracts,
+  explicit completion limits, sufficient observations, one subset-minimal reason
+  and an outcome-flipping witness when available. Strong-next endpoints are false.
+- Partial searches retain UNKNOWN flipping status and withhold minimality claims.
+  Source labels remain caller claims; no minimum-cardinality, source-fidelity or
+  performance claim is made. Existing symbolic sufficient-core semantics remain.
+- Keep the package version unchanged pending release.
+
 ## Unreleased — recorded experiments and comparison-derived tests
 
 - Add host-side `Workspace.run_recorded`, `load_recorded` and `replay_recorded`
