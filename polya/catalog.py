@@ -231,7 +231,8 @@ from .experiment_design import operations as experiment_ops
 from .classical_search import operations as classical_ops
 from .utility_eval import operations as utility_ops
 from .method_ops import operations as method_ops
-for builder in (council_ops, casepack_ops, experiment_ops, classical_ops, utility_ops, method_ops):
+from .trace_explanations import operations as trace_ops
+for builder in (council_ops, casepack_ops, experiment_ops, classical_ops, utility_ops, method_ops, trace_ops):
     OPS.extend(builder(_op))
 REGISTRY = {op.operation_id: op for op in OPS}
 

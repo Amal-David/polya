@@ -1,8 +1,8 @@
 # Operation reference
 
-Polya registers 56 operations in 24 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
+Polya registers 57 operations in 25 families. This file is generated from `polya.catalog.REGISTRY` by `scripts/generate_operations_doc.py`; do not edit it by hand. Run `polya inspect ID --schema` for the full JSON schema of one operation.
 
-Families: [artifact](#artifact), [automata](#automata), [backends](#backends), [bits](#bits), [bytes](#bytes), [candidate](#candidate), [casepack](#casepack), [cipher](#cipher), [constraints](#constraints), [council](#council), [crypto](#crypto), [evidence](#evidence), [experiment](#experiment), [grid](#grid), [hypotheses](#hypotheses), [jacobian](#jacobian), [mechanism](#mechanism), [method](#method), [pattern](#pattern), [specialist](#specialist), [symbolic](#symbolic), [text](#text), [utility](#utility), [verify](#verify).
+Families: [artifact](#artifact), [automata](#automata), [backends](#backends), [bits](#bits), [bytes](#bytes), [candidate](#candidate), [casepack](#casepack), [cipher](#cipher), [constraints](#constraints), [council](#council), [crypto](#crypto), [evidence](#evidence), [experiment](#experiment), [grid](#grid), [hypotheses](#hypotheses), [jacobian](#jacobian), [mechanism](#mechanism), [method](#method), [pattern](#pattern), [specialist](#specialist), [symbolic](#symbolic), [text](#text), [trace](#trace), [utility](#utility), [verify](#verify).
 
 ## artifact
 
@@ -1955,6 +1955,86 @@ Example input:
     " ": "",
     "b": "1"
   }
+}
+```
+
+## trace
+
+### `trace.explain`
+
+**Explain a fixed finite trace verdict.** Version 1; cacheable: yes.
+
+Check all Boolean completions to distinguish sufficient observations, one subset-minimal reason and one subset-minimal outcome-flipping set.
+
+Postcondition: Exact explanations relative to the supplied formula, fixed nonempty trace length, alphabet and independent Boolean completion domain. Source and observation meanings are caller claims, not authenticated evidence or intended-model fidelity. One subset-minimal explanation of each kind when it exists, on COMPLETE only; not all explanations or minimum cardinality. No causal or real-world intervention claim. Existing symbolic cores are unchanged.
+
+Limits:
+
+- Nonempty trace
+- at most 12 Boolean cells, 64 backward-referencing formula nodes, 4096 completions
+- caller cap yields PARTIAL without minimality or absence claims. Strong next is false at the endpoint.
+
+Required inputs:
+
+- `alphabet`: array of string
+- `trace`: array of array of boolean
+- `formula`: array of Node
+- `source`: string
+
+Optional inputs:
+
+- `max_completions`: integer, default `4096`
+
+Output fields: `status`, `verdict`, `sufficient_observations`, `subset_minimal_sufficient`, `outcome_flipping`, `flipping_status`, `completions_checked`, `completion_count`, `source`, `scope`.
+
+Example input:
+
+```json
+{
+  "alphabet": [
+    "request",
+    "done"
+  ],
+  "trace": [
+    [
+      true,
+      false
+    ],
+    [
+      false,
+      true
+    ]
+  ],
+  "formula": [
+    {
+      "op": "atom",
+      "proposition": "request"
+    },
+    {
+      "op": "atom",
+      "proposition": "done"
+    },
+    {
+      "op": "next",
+      "args": [
+        1
+      ]
+    },
+    {
+      "op": "implies",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "op": "always",
+      "args": [
+        3
+      ]
+    }
+  ],
+  "source": "Synthetic request/response trace"
 }
 ```
 
