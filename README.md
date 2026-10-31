@@ -1,10 +1,17 @@
 <h1 align="center">Polya</h1>
 
-<p align="center"><strong>Typed, bounded operations that puzzle-solving agents can discover, inspect and run.</strong></p>
+<p align="center"><strong>Discover a puzzle operation. Inspect its inputs. Run it locally.</strong></p>
 <p align="center">
   <a href="https://github.com/Amal-David/polya/actions/workflows/ci.yml"><img src="https://github.com/Amal-David/polya/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/python-3.11%E2%80%933.15-blue" alt="Python 3.11 through 3.15">
+</p>
+
+<p align="center">
+  <a href="#see-it-work">See it work</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="docs/operations.md">Operation reference</a> ·
+  <a href="https://github.com/Amal-David/polya/issues">Report a bug</a>
 </p>
 
 Polya gives AI agents operations for cipher decoding, symbolic constraints,
@@ -12,7 +19,28 @@ automata and exact candidate checks. Python, a JSON CLI and a stdio MCP server
 share the same contracts. The agent picks the strategy; each operation does one
 bounded computation and says what its result covers.
 
-## Install
+## See it work
+
+Three short CLI recordings, using synthetic inputs and the base install.
+
+**Find an operation and inspect its input.** Search for Vigenere, then ask for a
+ready-to-run JSON example.
+
+![CLI recording: searching for Vigenere returns cipher.polyalphabetic; inspecting its example prints ciphertext and a key.](docs/demos/discovery.gif)
+
+**Decode a supplied cipher.** With key `LEMON`, `LXFOPVEFRNHR` becomes
+`ATTACKATDAWN`. The result includes source offsets and the transformation's scope.
+
+![CLI recording: running cipher.polyalphabetic with ciphertext LXFOPVEFRNHR and key LEMON returns ATTACKATDAWN.](docs/demos/cipher.gif)
+
+**Enumerate a finite constraint system.** Two binary variables must differ.
+Polya returns both assignments and reports `COMPLETE` after exhausting this system.
+
+![CLI recording: constraints.solve returns a=0, b=1 and a=1, b=0, with complete enumeration and explicit limits.](docs/demos/constraints.gif)
+
+[Copy the commands or re-record the demos](docs/demos/README.md).
+
+## Quick start
 
 ```bash
 python -m pip install "git+https://github.com/Amal-David/polya.git"
@@ -22,29 +50,16 @@ The distribution will be `polya-puzzles` on PyPI; publication is pending.
 Optional extras (images, Z3, CP-SAT, AALpy) are listed in
 [getting started](docs/getting-started.md#install).
 
-## First run
-
-```console
-$ polya run cipher.polyalphabetic --json '{"text":"LXFOPVEFRNHR","key":"LEMON","variant":"vigenere"}' --result-only
-{"text": "ATTACKATDAWN", "source_offsets": [0, 1, 2, ...], "scope": "Exact supplied transformation; ..."}
-
-$ polya list
-artifact
-  artifact.png_bitplane  Extract a lossless PNG sample bit plane
-automata
-  automata.distinguish  Find a distinguishing experiment
-...
-
-$ polya inspect symbolic.analyze
-{"operation_id": "symbolic.analyze", "title": "Analyze uniqueness and consequences",
- "inputs": {"model": {"type": "PuzzleModel", "required": true}, ...}, "outputs": {...}, ...}
-
-$ polya find "forced values"
-[{"operation_id": "symbolic.analyze", "title": "Analyze uniqueness and consequences", ...}]
+```bash
+polya find vigenere --limit 1
+polya inspect cipher.polyalphabetic --example
+polya run cipher.polyalphabetic --result-only \
+  --json '{"text":"LXFOPVEFRNHR","key":"LEMON","variant":"vigenere"}'
 ```
 
-`inspect` prints a compact summary; add `--schema` for the full JSON schema or
-`--example` for example inputs. Output is abbreviated above.
+The decoded `text` is `ATTACKATDAWN`. Omit `--result-only` to include the execution
+receipt. Use `polya list` for the full catalogue, or `polya inspect <operation_id>`
+for its contract; add `--schema` for the full JSON schema.
 
 The same Vigenere example in Python:
 
